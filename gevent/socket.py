@@ -81,7 +81,7 @@ __imports__ = ['error',
 
 import sys
 import time
-from gevent.hub import get_hub, basestring
+from gevent.hub import get_hub, basestring, int
 from gevent.timeout import Timeout
 
 is_windows = sys.platform == 'win32'
@@ -112,7 +112,47 @@ except ImportError:
 import _socket
 _realsocket = _socket.socket
 __socket__ = __import__('socket')
-_fileobject = __socket__._fileobject
+try:
+    _fileobject = __socket__._fileobject
+except AttributeError:
+    #for python 3, use the SocketIO class instead
+    SocketIO = __socket__.SocketIO
+    import io
+    def _fileobject(sock, mode='rb', buffering=-1, close=False):
+        for c in mode:
+            if c not in {"r", "w", "b"}:
+                raise ValueError("invalid mode %r (only r, w, b allowed)")
+        writing = "w" in mode
+        reading = "r" in mode or not writing
+        assert reading or writing
+        binary = "b" in mode
+        rawmode = ""
+        if reading:
+            rawmode += "r"
+        if writing:
+            rawmode += "w"
+        raw = SocketIO(self, rawmode)
+        self._io_refs += 1
+        if buffering is None:
+            buffering = -1
+        if buffering < 0:
+            buffering = io.DEFAULT_BUFFER_SIZE
+        if buffering == 0:
+            if not binary:
+                raise ValueError("unbuffered streams must be binary")
+            return raw
+        if reading and writing:
+            buffer = io.BufferedRWPair(raw, raw, buffering)
+        elif reading:
+            buffer = io.BufferedReader(raw, buffering)
+        else:
+            assert writing
+            buffer = io.BufferedWriter(raw, buffering)
+        if binary:
+            return buffer
+        text = io.TextIOWrapper(buffer, encoding, errors, newline)
+        text.mode = mode
+        return text
 
 for name in __imports__[:]:
     try:
