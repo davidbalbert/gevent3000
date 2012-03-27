@@ -81,7 +81,8 @@ __imports__ = ['error',
 
 import sys
 import time
-from gevent.hub import get_hub, basestring, int
+from gevent.hub import get_hub, basestring
+from gevent.six import integer_types
 from gevent.timeout import Timeout
 
 is_windows = sys.platform == 'win32'
@@ -163,7 +164,7 @@ for name in __imports__[:]:
 
 for name in __socket__.__all__:
     value = getattr(__socket__, name)
-    if isinstance(value, (int, long, basestring)):
+    if isinstance(value, integer_types) or isinstance(value, basestring):
         globals()[name] = value
         __imports__.append(name)
 
@@ -571,12 +572,8 @@ class socket(object):
     proto = property(lambda self: self._sock.proto, doc="the socket protocol")
 
     # delegate the functions that we haven't implemented to the real socket object
-
-    _s = ("def %s(self, *args): return self._sock.%s(*args)\n\n"
-          "%s.__doc__ = _realsocket.%s.__doc__\n")
-    for _m in set(__socket__._socketmethods) - set(locals()):
-        exec (_s % (_m, _m, _m, _m))
-    del _m, _s
+    def __getattr__(self, name):
+        return getattr(self._sock, name)
 
 SocketType = socket
 
