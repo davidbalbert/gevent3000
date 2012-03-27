@@ -315,7 +315,8 @@ class Hub(greenlet):
         else:
             try:
                 info = self.loop._format()
-            except Exception, ex:
+            except Exception:
+                _, ex, _ = sys.exc_info()
                 info = str(ex) or repr(ex) or 'error'
         result = '<%s at 0x%x %s' % (self.__class__.__name__, id(self), info)
         if self._resolver is not None:
