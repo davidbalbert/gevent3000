@@ -98,7 +98,7 @@ class Resolver(object):
     def _getaddrinfo(self, host, port, family=0, socktype=0, proto=0, flags=0):
         if isinstance(host, text_type):
             host = host.encode('idna')
-        elif not isinstance(host, str) or (flags & AI_NUMERICHOST):
+        elif not isinstance(host, basestring) or (flags & AI_NUMERICHOST):
             # this handles cases which do not require network access
             # 1) host is None
             # 2) host is of an invalid type
@@ -178,7 +178,6 @@ class Resolver(object):
             self.ares.gethostbyaddr(waiter, ip_address)
             return waiter.get()
         except InvalidIP:
-            print(sys.exc_info())
             result = self._getaddrinfo(ip_address, None, family=AF_UNSPEC, socktype=SOCK_DGRAM)
             if not result:
                 raise
