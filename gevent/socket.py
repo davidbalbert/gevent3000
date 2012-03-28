@@ -81,7 +81,7 @@ __imports__ = ['error',
 
 import sys
 import time
-from gevent.hub import get_hub, basestring
+from gevent.hub import get_hub, basestring, exc_clear
 from gevent.six import integer_types
 from gevent.timeout import Timeout
 
@@ -133,7 +133,6 @@ except AttributeError:
         if writing:
             rawmode += "w"
         raw = SocketIO(self, rawmode)
-        self._io_refs += 1
         if buffering is None:
             buffering = -1
         if buffering < 0:
@@ -336,13 +335,17 @@ class socket(object):
         sock = self._sock
         while True:
             try:
-                client_socket, address = sock.accept()
+                try:
+                    client_socket  = sock.accept()
+                except AttributeError:
+                    fd, address = sock._accept()
+                    client_socket, address = _realsocket(self.family, self.type, self.proto, fileno=fd)
                 break
             except error:
                 ex = sys.exc_info()[1]
                 if ex[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
-                sys.exc_clear()
+                exc_clear()
             self._wait(self._read_event)
         return socket(_sock=client_socket), address
 
@@ -419,7 +422,7 @@ class socket(object):
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
                 # QQQ without clearing exc_info test__refcount.test_clean_exit fails
-                sys.exc_clear()
+                exc_clear()
             try:
                 self._wait(self._read_event)
             except error:
@@ -437,7 +440,7 @@ class socket(object):
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
-                sys.exc_clear()
+                exc_clear()
             self._wait(self._read_event)
 
     def recvfrom_into(self, *args):
@@ -449,7 +452,7 @@ class socket(object):
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
-                sys.exc_clear()
+                exc_clear()
             self._wait(self._read_event)
 
     def recv_into(self, *args):
@@ -463,7 +466,7 @@ class socket(object):
                     return 0
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
-                sys.exc_clear()
+                exc_clear()
             try:
                 self._wait(self._read_event)
             except error:
@@ -482,7 +485,7 @@ class socket(object):
             ex = sys.exc_info()[1]
             if ex.args[0] != EWOULDBLOCK or timeout == 0.0:
                 raise
-            sys.exc_clear()
+            exc_clear()
             try:
                 self._wait(self._write_event)
             except error:
@@ -527,7 +530,7 @@ class socket(object):
             ex = sys.exc_info()[1]
             if ex.args[0] != EWOULDBLOCK or timeout == 0.0:
                 raise
-            sys.exc_clear()
+            exc_clear()
             self._wait(self._write_event)
             try:
                 return sock.sendto(*args)
@@ -631,7 +634,7 @@ def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT, source_address=N
             # and the next bind() fails (see test__socket.TestCreateConnection)
             # that does not happen with regular sockets though, because _socket.socket.connect() is a built-in.
             # this is similar to "getnameinfo loses a reference" failure in test_socket.py
-            sys.exc_clear()
+            exc_clear()
             if sock is not None:
                 sock.close()
     if err is not None:
