@@ -33,7 +33,8 @@ except ImportError:
 
 from gevent.timeout import Timeout
 from gevent.hub import get_hub, Waiter, getcurrent
-
+from gevent.six import moves
+xrange = moves.xrange
 
 __all__ = ['Queue', 'PriorityQueue', 'LifoQueue', 'JoinableQueue', 'Channel']
 

@@ -4,6 +4,8 @@
 import sys
 from gevent.hub import get_hub, getcurrent, _NONE
 from gevent.timeout import Timeout
+from gevent.six import moves
+xrange = moves.xrange
 
 __all__ = ['Event', 'AsyncResult']
 
