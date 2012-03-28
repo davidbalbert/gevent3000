@@ -275,6 +275,8 @@ class socket(object):
             else:
                 self._sock = _sock
                 self.timeout = _socket.getdefaulttimeout()
+
+        self.type = type
         self._sock.setblocking(0)
         fileno = self._sock.fileno()
         self.hub = get_hub()
@@ -339,11 +341,11 @@ class socket(object):
                     client_socket  = sock.accept()
                 except AttributeError:
                     fd, address = sock._accept()
-                    client_socket, address = _realsocket(self.family, self.type, self.proto, fileno=fd)
+                    client_socket = _realsocket(self.family, self.type, self.proto, fileno=fd)
                 break
             except error:
                 ex = sys.exc_info()[1]
-                if ex[0] != EWOULDBLOCK or self.timeout == 0.0:
+                if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
                 exc_clear()
             self._wait(self._read_event)
@@ -364,7 +366,7 @@ class socket(object):
             return self._sock.connect(address)
         sock = self._sock
         if isinstance(address, tuple):
-            r = getaddrinfo(address[0], address[1], sock.family, sock.type, sock.proto)
+            r = getaddrinfo(address[0], address[1], self.family, self.type, self.proto)
             address = r[0][-1]
         if self.timeout is not None:
             timer = Timeout.start_new(self.timeout, timeout('timed out'))
@@ -569,10 +571,6 @@ class socket(object):
             self.hub.cancel_wait(self._read_event, cancel_wait_ex)
             self.hub.cancel_wait(self._write_event, cancel_wait_ex)
         self._sock.shutdown(how)
-
-    family = property(lambda self: self._sock.family, doc="the socket family")
-    type = property(lambda self: self._sock.type, doc="the socket type")
-    proto = property(lambda self: self._sock.proto, doc="the socket protocol")
 
     # delegate the functions that we haven't implemented to the real socket object
     def __getattr__(self, name):
