@@ -8,10 +8,10 @@ import traceback
 from os.path import join, abspath, basename, dirname
 from glob import glob
 
-try:
-    from setuptools import Extension, setup
-except ImportError:
-    from distutils.core import Extension, setup
+#try:
+#    from setuptools import Extension, setup
+#except ImportError:
+from distutils.core import Extension, setup
 from distutils.command.build_ext import build_ext
 from distutils.command.sdist import sdist as _sdist
 from distutils.errors import CCompilerError, DistutilsExecError, DistutilsPlatformError
