@@ -72,7 +72,7 @@ class SSLSocket(socket):
             keyfile = certfile
         # see if it's connected
         try:
-            socket.getpeername(self)
+            self.getpeername()
         except socket_error:
             if sys.exc_info()[0] != errno.ENOTCONN:
                 raise
