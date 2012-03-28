@@ -57,6 +57,7 @@ Monkey patches:
 """
 
 import sys
+from gevent.hub import basestring
 
 __all__ = ['patch_all',
            'patch_socket',
