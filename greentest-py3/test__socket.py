@@ -49,7 +49,7 @@ class TestTCP(greentest.TestCase):
         self.sendall(str(self.long_data))
 
     def test_sendall_array(self):
-        data = array.array("B", self.long_data)
+        data = array.array("u", self.long_data)
         self.sendall(data)
 
     def test_fullduplex(self):
@@ -196,7 +196,7 @@ class TestClosedSocket(greentest.TestCase):
         try:
             sock.send('a', timeout=1)
         except socket.error as ex:
-            if ex[0] != 9:
+            if ex.args[0] != 9:
                 raise
 
 
