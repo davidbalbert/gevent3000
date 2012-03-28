@@ -2,7 +2,8 @@
 # Copyright (c) 2009-2012 Denis Bilenko. See LICENSE for details.
 from gevent.greenlet import Greenlet, getfuncname
 from gevent.event import Event
-from gevent.six import string_types, integer_types
+from gevent.six import string_types, integer_types, moves
+xrange = moves.xrange
 import gevent
 import _socket
 import sys
@@ -283,7 +284,7 @@ class BaseServer(object):
             gevent.spawn(self.stop, timeout=stop_timeout).join()
 
     def is_fatal_error(self, ex):
-        return isinstance(ex, _socket.error) and ex[0] in self.fatal_errors
+        return isinstance(ex, _socket.error) and ex.args[0] in self.fatal_errors
 
 
 def _extract_family(host):
