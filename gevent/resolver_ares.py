@@ -42,7 +42,7 @@ class Resolver(object):
 
     def gethostbyname(self, hostname, family=AF_INET):
         hostname = _resolve_special(hostname, family)
-        return self.gethostbyname_ex(hostname, family)[-1][0]
+        return self.gethostbyname_ex(hostname.decode('idna'), family)[-1][0]
 
     def gethostbyname_ex(self, hostname, family=AF_INET):
         while True:
@@ -193,7 +193,8 @@ class Resolver(object):
         while True:
             ares = self.ares
             try:
-                return self._gethostbyaddr(ip_address)
+                res = self._gethostbyaddr(ip_address)
+                return [(r[0].decode('idna'), r[1], r[2]) for r in res]
             except gaierror:
                 if ares is self.ares:
                     raise
