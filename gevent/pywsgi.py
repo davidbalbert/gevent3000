@@ -12,7 +12,7 @@ from urllib import unquote
 from gevent import socket
 import gevent
 from gevent.server import StreamServer
-from gevent.hub import GreenletExit
+from gevent.hub import GreenletExit, exc_clear
 
 
 __all__ = ['WSGIHandler', 'WSGIServer']
@@ -318,7 +318,7 @@ class WSGIHandler(object):
             ex = sys.exc_info()[1]
             # Broken pipe, connection reset by peer
             if ex.args[0] in (errno.EPIPE, errno.ECONNRESET):
-                sys.exc_clear()
+                exc_clear()
                 return
             else:
                 raise
@@ -376,7 +376,8 @@ class WSGIHandler(object):
         msg = ''.join(towrite)
         try:
             self.socket.sendall(msg)
-        except socket.error, ex:
+        except socket.error:
+            _, ex, _ = sys.exc_info()
             self.status = 'socket error: %s' % ex
             if self.code > 0:
                 self.code = -self.code
