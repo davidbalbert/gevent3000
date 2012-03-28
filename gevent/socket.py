@@ -82,7 +82,7 @@ __imports__ = ['error',
 import sys
 import time
 from gevent.hub import get_hub, basestring, exc_clear
-from gevent.six import integer_types
+from gevent.six import integer_types, text_type, PY3
 from gevent.timeout import Timeout
 
 is_windows = sys.platform == 'win32'
@@ -132,7 +132,8 @@ except AttributeError:
             rawmode += "r"
         if writing:
             rawmode += "w"
-        raw = SocketIO(self, rawmode)
+        raw = SocketIO(sock, rawmode)
+        sock._io_refs += 1
         if buffering is None:
             buffering = -1
         if buffering < 0:
@@ -150,7 +151,7 @@ except AttributeError:
             buffer = io.BufferedWriter(raw, buffering)
         if binary:
             return buffer
-        text = io.TextIOWrapper(buffer, encoding, errors, newline)
+        text = io.TextIOWrapper(buffer)
         text.mode = mode
         return text
 
@@ -283,6 +284,10 @@ class socket(object):
         io = self.hub.loop.io
         self._read_event = io(fileno, 1)
         self._write_event = io(fileno, 2)
+        
+        #py3 sockets stay open until the last SocketIO object is closed
+        self._io_refs = 0
+        self._closed = False
 
     def __repr__(self):
         return '<%s at %s %s>' % (type(self).__name__, hex(id(self)), self._formatinfo())
@@ -351,15 +356,29 @@ class socket(object):
             self._wait(self._read_event)
         return socket(_sock=client_socket), address
 
+    def _decref_socketios(self):
+        if self._io_refs > 0:
+            self._io_refs -= 1
+        if self._closed:
+            self.close()
+
+    def _real_close(self, _ss=_realsocket):
+        _ss.close(self._sock)
+
     def close(self, _closedsocket=_closedsocket, _delegate_methods=_delegate_methods,
               setattr=setattr, cancel_wait_ex=cancel_wait_ex):
-        # This function should not reference any globals. See Python issue #808164.
-        self.hub.cancel_wait(self._read_event, cancel_wait_ex)
-        self.hub.cancel_wait(self._write_event, cancel_wait_ex)
-        self._sock = _closedsocket()
-        dummy = self._sock._dummy
-        for method in _delegate_methods:
-            setattr(self, method, dummy)
+        if PY3: #in py3, sockets stay open until the last socketio closes
+            self._closed = True
+            if self._io_refs <= 0:
+                self._real_close()
+        else:
+            # This function should not reference any globals. See Python issue #808164.
+            self.hub.cancel_wait(self._read_event, cancel_wait_ex)
+            self.hub.cancel_wait(self._write_event, cancel_wait_ex)
+            self._sock = _closedsocket()
+            dummy = self._sock._dummy
+            for method in _delegate_methods:
+                setattr(self, method, dummy)
 
     def connect(self, address):
         if self.timeout == 0.0:
@@ -504,7 +523,7 @@ class socket(object):
                 raise
 
     def sendall(self, data, flags=0):
-        if isinstance(data, unicode):
+        if isinstance(data, text_type):
             data = data.encode()
         # this sendall is also reused by gevent.ssl.SSLSocket subclass,
         # so it should not call self._sock methods directly
