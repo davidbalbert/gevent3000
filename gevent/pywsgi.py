@@ -5,7 +5,10 @@ import errno
 import sys
 import time
 import traceback
-import mimetools
+try:
+    import mimetools as mime
+except ImportError:
+    import email.message as mime
 from datetime import datetime
 from urllib import unquote
 
@@ -165,7 +168,7 @@ class Input(object):
 
 class WSGIHandler(object):
     protocol_version = 'HTTP/1.1'
-    MessageClass = mimetools.Message
+    MessageClass = mime.Message
 
     def __init__(self, socket, address, server, rfile=None):
         self.socket = socket
@@ -389,7 +392,7 @@ class WSGIHandler(object):
             try:
                 if self.headers_sent:
                     # Re-raise original exception if headers sent
-                    raise exc_info[0], exc_info[1], exc_info[2]
+                    raise
             finally:
                 # Avoid dangling circular ref
                 exc_info = None
