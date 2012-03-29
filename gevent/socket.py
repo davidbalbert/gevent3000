@@ -343,7 +343,7 @@ class socket(object):
         while True:
             try:
                 try:
-                    client_socket  = sock.accept()
+                    client_socket, address  = sock.accept()
                 except AttributeError:
                     fd, address = sock._accept()
                     client_socket = _realsocket(self.family, self.type, self.proto, fileno=fd)
