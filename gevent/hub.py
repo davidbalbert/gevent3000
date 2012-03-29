@@ -4,6 +4,7 @@ import sys
 import os
 import traceback
 from gevent import core
+from gevent.six import PY3
 
 
 __all__ = ['getcurrent',
@@ -340,7 +341,10 @@ class Hub(greenlet):
     def print_exception(self, context, type, value, tb):
         if issubclass(type, self.NOT_ERROR):
             return
-        traceback.print_exception(type, value, tb)
+        if PY3:
+            traceback.print_exception(type, value, tb, chain=False)
+        else:
+            traceback.print_exception(type, value, tb)
         del tb
         if context is not None:
             if not isinstance(context, str):
