@@ -263,9 +263,12 @@ timeout_default = object()
 
 class socket(object):
 
-    def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0, _sock=None):
+    def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None, _sock=None):
         if _sock is None:
-            self._sock = _realsocket(family, type, proto)
+            if PY3:
+                self._sock = _realsocket(family, type, proto, fileno)
+            else:
+                self._sock = _realsocket(family, type, proto)
             self.timeout = _socket.getdefaulttimeout()
         else:
             if hasattr(_sock, '_sock'):
