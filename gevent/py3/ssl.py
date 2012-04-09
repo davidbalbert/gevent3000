@@ -20,8 +20,8 @@ except AttributeError:
 
 import sys
 import errno
-from gevent.socket import socket, _fileobject, timeout_default
-from gevent.socket import error as socket_error, EBADF
+from gevent.py3.socket import socket, _fileobject, timeout_default
+from gevent.py3.socket import error as socket_error, EBADF
 from gevent.hub import basestring, exc_clear
 from gevent.six import integer_types, PY3
 
