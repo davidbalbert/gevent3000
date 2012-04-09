@@ -257,7 +257,7 @@ def run_setup(ext_modules):
         author='Denis Bilenko',
         author_email='denis.bilenko@gmail.com',
         url='http://www.gevent.org/',
-        packages=['gevent'],
+        packages=['gevent', 'gevent.py3', 'gevent.py2'],
         ext_modules=ext_modules,
         cmdclass=dict(build_ext=my_build_ext, sdist=sdist),
         install_requires=['greenlet'],
