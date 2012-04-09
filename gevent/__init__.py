@@ -52,10 +52,10 @@ except ImportError:
 
 if PY3:
 	socket = __import__('gevent.py3.socket')
-	socket = __import__('gevent.py3.ssl')
+	ssl = __import__('gevent.py3.ssl')
 else:
 	socket = __import__('gevent.py2.socket')
-	socket = __import__('gevent.py2.ssl')
+	ssl = __import__('gevent.py2.ssl')
 
 
 def reinit():
