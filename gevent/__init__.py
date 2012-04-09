@@ -36,7 +36,6 @@ import sys
 from gevent.six import PY3
 if sys.platform == 'win32':
     __import__('socket')  # trigger WSAStartup call
-del sys
 
 
 from gevent.hub import get_hub
@@ -51,12 +50,17 @@ except ImportError:
     __all__.remove('fork')
 
 if PY3:
-	socket = __import__('gevent.py3.socket')
-	ssl = __import__('gevent.py3.ssl')
+    from gevent.py3 import socket
+    sys.modules['gevent.socket'] = socket
+    from gevent.py3 import ssl
+    sys.modules['gevent.ssl'] = ssl
 else:
-	socket = __import__('gevent.py2.socket')
-	ssl = __import__('gevent.py2.ssl')
+    from gevent.py2 import socket
+    sys.modules['gevent.socket'] = socket
+    from gevent.py2 import ssl
+    sys.modules['gevent.ssl'] = ssl
 
+del sys
 
 def reinit():
     return get_hub().loop.reinit()
