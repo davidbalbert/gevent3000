@@ -27,10 +27,13 @@ __all__ = ['get_hub',
            'signal',
            'fork',
            'reinit',
-           'run']
+           'run',
+		   'socket',
+		   'ssl']
 
 
 import sys
+from six import PY3
 if sys.platform == 'win32':
     __import__('socket')  # trigger WSAStartup call
 del sys
@@ -46,6 +49,13 @@ try:
     from gevent.hub import fork
 except ImportError:
     __all__.remove('fork')
+
+if PY3:
+	socket = __import__('gevent.py3.socket')
+	socket = __import__('gevent.py3.ssl')
+else:
+	socket = __import__('gevent.py2.socket')
+	socket = __import__('gevent.py2.ssl')
 
 
 def reinit():
