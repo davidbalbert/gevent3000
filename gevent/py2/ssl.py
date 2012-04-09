@@ -22,8 +22,7 @@ import sys
 import errno
 from gevent.socket import socket, _fileobject, timeout_default
 from gevent.socket import error as socket_error, EBADF
-from gevent.hub import basestring, exc_clear
-from gevent.six import integer_types
+from gevent.hub import basestring
 
 __implements__ = ['SSLSocket',
                   'wrap_socket',
@@ -49,7 +48,7 @@ for name in __imports__[:]:
 for name in dir(__ssl__):
     if not name.startswith('_'):
         value = getattr(__ssl__, name)
-        if isinstance(value, integer_types) or isinstance(value, (basestring, tuple)):
+        if isinstance(value, (int, long, basestring, tuple)):
             globals()[name] = value
             __imports__.append(name)
 
@@ -72,9 +71,9 @@ class SSLSocket(socket):
             keyfile = certfile
         # see if it's connected
         try:
-            self.getpeername()
-        except socket_error:
-            if sys.exc_info()[0] != errno.ENOTCONN:
+            socket.getpeername(self)
+        except socket_error, e:
+            if e[0] != errno.ENOTCONN:
                 raise
             # no, no connection yet
             self._sslobj = None
@@ -114,7 +113,7 @@ class SSLSocket(socket):
                 elif ex.args[0] == SSL_ERROR_WANT_READ:
                     if self.timeout == 0.0:
                         raise
-                    exc_clear()
+                    sys.exc_clear()
                     try:
                         self._wait(self._read_event, timeout_exc=_SSLErrorReadTimeout)
                     except socket_error:
@@ -125,7 +124,7 @@ class SSLSocket(socket):
                 elif ex.args[0] == SSL_ERROR_WANT_WRITE:
                     if self.timeout == 0.0:
                         raise
-                    exc_clear()
+                    sys.exc_clear()
                     try:
                         # note: using _SSLErrorReadTimeout rather than _SSLErrorWriteTimeout below is intentional
                         self._wait(self._write_event, timeout_exc=_SSLErrorReadTimeout)
@@ -148,7 +147,7 @@ class SSLSocket(socket):
                 if ex.args[0] == SSL_ERROR_WANT_READ:
                     if self.timeout == 0.0:
                         raise
-                    exc_clear()
+                    sys.exc_clear()
                     try:
                         self._wait(self._read_event, timeout_exc=_SSLErrorWriteTimeout)
                     except socket_error:
@@ -159,7 +158,7 @@ class SSLSocket(socket):
                 elif ex.args[0] == SSL_ERROR_WANT_WRITE:
                     if self.timeout == 0.0:
                         raise
-                    exc_clear()
+                    sys.exc_clear()
                     try:
                         self._wait(self._write_event, timeout_exc=_SSLErrorWriteTimeout)
                     except socket_error:
@@ -199,7 +198,7 @@ class SSLSocket(socket):
                     if x.args[0] == SSL_ERROR_WANT_READ:
                         if self.timeout == 0.0:
                             return 0
-                        exc_clear()
+                        sys.exc_clear()
                         try:
                             self._wait(self._read_event)
                         except socket_error:
@@ -210,7 +209,7 @@ class SSLSocket(socket):
                     elif x.args[0] == SSL_ERROR_WANT_WRITE:
                         if self.timeout == 0.0:
                             return 0
-                        exc_clear()
+                        sys.exc_clear()
                         try:
                             self._wait(self._write_event)
                         except socket_error:
@@ -263,7 +262,7 @@ class SSLSocket(socket):
                 except SSLError:
                     x = sys.exc_info()[1]
                     if x.args[0] == SSL_ERROR_WANT_READ:
-                        exc_clear()
+                        sys.exc_clear()
                         if self.timeout == 0.0:
                             raise
                         try:
@@ -310,7 +309,7 @@ class SSLSocket(socket):
                 elif ex.args[0] == SSL_ERROR_WANT_READ:
                     if self.timeout == 0.0:
                         raise
-                    exc_clear()
+                    sys.exc_clear()
                     try:
                         self._wait(self._read_event, timeout_exc=_SSLErrorReadTimeout)
                     except socket_error:
@@ -321,7 +320,7 @@ class SSLSocket(socket):
                 elif ex.args[0] == SSL_ERROR_WANT_WRITE:
                     if self.timeout == 0.0:
                         raise
-                    exc_clear()
+                    sys.exc_clear()
                     try:
                         self._wait(self._write_event, timeout_exc=_SSLErrorWriteTimeout)
                     except socket_error:
@@ -361,12 +360,12 @@ class SSLSocket(socket):
                 if ex.args[0] == SSL_ERROR_WANT_READ:
                     if self.timeout == 0.0:
                         raise
-                    exc_clear()
+                    sys.exc_clear()
                     self._wait(self._read_event, timeout_exc=_SSLErrorHandshakeTimeout)
                 elif ex.args[0] == SSL_ERROR_WANT_WRITE:
                     if self.timeout == 0.0:
                         raise
-                    exc_clear()
+                    sys.exc_clear()
                     self._wait(self._write_event, timeout_exc=_SSLErrorHandshakeTimeout)
                 else:
                     raise

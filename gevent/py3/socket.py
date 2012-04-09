@@ -31,54 +31,6 @@ For convenience, exceptions (like :class:`error <socket.error>` and :class:`time
 as well as the constants from :mod:`socket` module are imported into this module.
 """
 
-# standard functions and classes that this module re-implements in a gevent-aware way:
-__implements__ = ['create_connection',
-                  'socket',
-                  'SocketType',
-                  'fromfd',
-                  'socketpair']
-
-__dns__ = ['getaddrinfo',
-           'gethostbyname',
-           'gethostbyname_ex',
-           'gethostbyaddr',
-           'getnameinfo',
-           'getfqdn']
-
-__implements__ += __dns__
-
-# non-standard functions that this module provides:
-__extensions__ = ['wait_read',
-                  'wait_write',
-                  'wait_readwrite']
-
-# standard functions and classes that this module re-imports
-__imports__ = ['error',
-               'gaierror',
-               'herror',
-               'htonl',
-               'htons',
-               'ntohl',
-               'ntohs',
-               'inet_aton',
-               'inet_ntoa',
-               'inet_pton',
-               'inet_ntop',
-               'timeout',
-               'gethostname',
-               'getprotobyname',
-               'getservbyname',
-               'getservbyport',
-               'getdefaulttimeout',
-               'setdefaulttimeout',
-               # Python 2.5 and older:
-               'RAND_add',
-               'RAND_egd',
-               'RAND_status',
-               # Windows:
-               'errorTab']
-
-
 import sys
 import time
 from gevent.hub import get_hub, basestring, exc_clear
@@ -111,65 +63,8 @@ except ImportError:
     EBADF = 9
 
 import _socket
-_realsocket = _socket.socket
 __socket__ = __import__('socket')
-try:
-    _fileobject = __socket__._fileobject
-except AttributeError:
-    #for python 3, use the SocketIO class instead
-    SocketIO = __socket__.SocketIO
-    import io
-    def _fileobject(sock, mode='rb', buffering=-1, close=False):
-        for c in mode:
-            if c not in {"r", "w", "b"}:
-                raise ValueError("invalid mode %r (only r, w, b allowed)")
-        writing = "w" in mode
-        reading = "r" in mode or not writing
-        assert reading or writing
-        binary = "b" in mode
-        rawmode = ""
-        if reading:
-            rawmode += "r"
-        if writing:
-            rawmode += "w"
-        raw = SocketIO(sock, rawmode)
-        sock._io_refs += 1
-        if buffering is None:
-            buffering = -1
-        if buffering < 0:
-            buffering = io.DEFAULT_BUFFER_SIZE
-        if buffering == 0:
-            if not binary:
-                raise ValueError("unbuffered streams must be binary")
-            return raw
-        if reading and writing:
-            buffer = io.BufferedRWPair(raw, raw, buffering)
-        elif reading:
-            buffer = io.BufferedReader(raw, buffering)
-        else:
-            assert writing
-            buffer = io.BufferedWriter(raw, buffering)
-        if binary:
-            return buffer
-        text = io.TextIOWrapper(buffer)
-        text.mode = mode
-        return text
-
-for name in __imports__[:]:
-    try:
-        value = getattr(__socket__, name)
-        globals()[name] = value
-    except AttributeError:
-        __imports__.remove(name)
-
-for name in __socket__.__all__:
-    value = getattr(__socket__, name)
-    if isinstance(value, integer_types) or isinstance(value, basestring):
-        globals()[name] = value
-        __imports__.append(name)
-
-del name, value
-
+_real_socket = __socket__.socket
 
 def wait(io, timeout=None, timeout_exc=timeout('timed out')):
     """Block the current greenlet until *io* is ready.
@@ -245,83 +140,23 @@ else:
     def _get_memory(string, offset):
         return memoryview(string)[offset:]
 
-
-class _closedsocket(object):
-    __slots__ = []
-
-    def _dummy(*args, **kwargs):
-        raise error(EBADF, 'Bad file descriptor')
-    # All _delegate_methods must also be initialized here.
-    send = recv = recv_into = sendto = recvfrom = recvfrom_into = _dummy
-    __getattr__ = _dummy
-
-
-_delegate_methods = ("recv", "recvfrom", "recv_into", "recvfrom_into", "send", "sendto", 'sendall')
-
 timeout_default = object()
 
+class socket(_real_socket):
 
-class socket(object):
+    def __init__(self, *args, **kwargs):
+		_real_socket.__init__(self, *args, **kwargs)
 
-    def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None, _sock=None):
-        if _sock is None:
-            if PY3:
-                self._sock = _realsocket(family, type, proto, fileno)
-            else:
-                self._sock = _realsocket(family, type, proto)
+        self.timeout = getattr(self, 'timeout', False)
+        if self.timeout is False:
             self.timeout = _socket.getdefaulttimeout()
-        else:
-            if hasattr(_sock, '_sock'):
-                self._sock = _sock._sock
-                self.timeout = getattr(_sock, 'timeout', False)
-                if self.timeout is False:
-                    self.timeout = _socket.getdefaulttimeout()
-            else:
-                self._sock = _sock
-                self.timeout = _socket.getdefaulttimeout()
 
-        self.type = type
-        self._sock.setblocking(0)
-        fileno = self._sock.fileno()
+        self.setblocking(0)
         self.hub = get_hub()
         io = self.hub.loop.io
         self._read_event = io(fileno, 1)
         self._write_event = io(fileno, 2)
         
-        #py3 sockets stay open until the last SocketIO object is closed
-        self._io_refs = 0
-        self._closed = False
-
-    def __repr__(self):
-        return '<%s at %s %s>' % (type(self).__name__, hex(id(self)), self._formatinfo())
-
-    def __str__(self):
-        return '<%s %s>' % (type(self).__name__, self._formatinfo())
-
-    def _formatinfo(self):
-        try:
-            fileno = self.fileno()
-        except Exception:
-            fileno = str(sys.exc_info()[1])
-        try:
-            sockname = self.getsockname()
-            sockname = '%s:%s' % sockname
-        except Exception:
-            sockname = None
-        try:
-            peername = self.getpeername()
-            peername = '%s:%s' % peername
-        except Exception:
-            peername = None
-        result = 'fileno=%s' % fileno
-        if sockname is not None:
-            result += ' sock=' + str(sockname)
-        if peername is not None:
-            result += ' peer=' + str(peername)
-        if getattr(self, 'timeout', None) is not None:
-            result += ' timeout=' + str(self.timeout)
-        return result
-
     def _wait(self, watcher, timeout_exc=timeout('timed out')):
         """Block the current greenlet until *watcher* has pending events.
 
@@ -342,14 +177,14 @@ class socket(object):
                 timeout.cancel()
 
     def accept(self):
-        sock = self._sock
         while True:
             try:
-                try:
-                    client_socket, address  = sock.accept()
-                except AttributeError:
-                    fd, address = sock._accept()
-                    client_socket = _realsocket(self.family, self.type, self.proto, fileno=fd)
+                if PY3:
+                    fd, address = self._accept()
+                    client_socket = socket(self.family, self.type, self.proto, fd)
+                else:
+                    sock, address = self._sock.accept(self)
+                    client_socket = socket(_sock=sock)
                 break
             except error:
                 ex = sys.exc_info()[1]
@@ -357,36 +192,17 @@ class socket(object):
                     raise
                 exc_clear()
             self._wait(self._read_event)
-        return socket(_sock=client_socket), address
+        return client_socket, address
 
-    def _decref_socketios(self):
-        if self._io_refs > 0:
-            self._io_refs -= 1
-        if self._closed:
-            self.close()
+    def close(self, *args, **kwargs):
+		_real_socket.close(selfi, *args, **kwargs)
 
-    def _real_close(self, _ss=_realsocket):
-        _ss.close(self._sock)
-
-    def close(self, _closedsocket=_closedsocket, _delegate_methods=_delegate_methods,
-              setattr=setattr, cancel_wait_ex=cancel_wait_ex):
-        if PY3: #in py3, sockets stay open until the last socketio closes
-            self._closed = True
-            if self._io_refs <= 0:
-                self._real_close()
-        else:
-            # This function should not reference any globals. See Python issue #808164.
-            self.hub.cancel_wait(self._read_event, cancel_wait_ex)
-            self.hub.cancel_wait(self._write_event, cancel_wait_ex)
-            self._sock = _closedsocket()
-            dummy = self._sock._dummy
-            for method in _delegate_methods:
-                setattr(self, method, dummy)
+        self.hub.cancel_wait(self._read_event, cancel_wait_ex)
+        self.hub.cancel_wait(self._write_event, cancel_wait_ex)
 
     def connect(self, address):
         if self.timeout == 0.0:
-            return self._sock.connect(address)
-        sock = self._sock
+            return _real_socket.connect(self, address)
         if isinstance(address, tuple):
             r = getaddrinfo(address[0], address[1], self.family, self.type, self.proto)
             address = r[0][-1]
@@ -399,7 +215,7 @@ class socket(object):
                 err = sock.getsockopt(SOL_SOCKET, SO_ERROR)
                 if err:
                     raise error(err, strerror(err))
-                result = sock.connect_ex(address)
+                result = self.connect_ex(self, address)
                 if not result or result == EISCONN:
                     break
                 elif (result in (EWOULDBLOCK, EINPROGRESS, EALREADY)) or (result == EINVAL and is_windows):
@@ -412,7 +228,7 @@ class socket(object):
 
     def connect_ex(self, address):
         try:
-            return self.connect(address) or 0
+            return _real_socket.connect(self, address) or 0
         except timeout:
             return EAGAIN
         except error:
@@ -423,22 +239,16 @@ class socket(object):
                 raise  # gaierror is not silented by connect_ex
 
     def dup(self):
-        """dup() -> socket object
-
-        Return a new socket object connected to the same system resource.
-        Note, that the new socket does not inherit the timeout."""
+        if PY3:
+            return _real_socket.dup(self)
+        else:
+            return socket(_sock=sock)
         return socket(_sock=self._sock)
 
-    def makefile(self, mode='r', bufsize=-1):
-        # note that this does not inherit timeout either (intentionally, because that's
-        # how the standard socket behaves)
-        return _fileobject(self.dup(), mode, bufsize)
-
     def recv(self, *args):
-        sock = self._sock  # keeping the reference so that fd is not closed during waiting
         while True:
             try:
-                return sock.recv(*args)
+                return _real_socket.recv(self, *args)
             except error:
                 ex = sys.exc_info()[1]
                 if ex.args[0] == EBADF:
@@ -456,10 +266,9 @@ class socket(object):
                 raise
 
     def recvfrom(self, *args):
-        sock = self._sock
         while True:
             try:
-                return sock.recvfrom(*args)
+                return _real_socket.recvfrom(self, *args)
             except error:
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
@@ -468,10 +277,9 @@ class socket(object):
             self._wait(self._read_event)
 
     def recvfrom_into(self, *args):
-        sock = self._sock
         while True:
             try:
-                return sock.recvfrom_into(*args)
+                return _real_socket.recvfrom_into(self, *args)
             except error:
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
@@ -480,10 +288,9 @@ class socket(object):
             self._wait(self._read_event)
 
     def recv_into(self, *args):
-        sock = self._sock
         while True:
             try:
-                return sock.recv_into(*args)
+                return _real_socket.recv_into(self, *args)
             except error:
                 ex = sys.exc_info()[1]
                 if ex.args[0] == EBADF:
@@ -500,11 +307,10 @@ class socket(object):
                 raise
 
     def send(self, data, flags=0, timeout=timeout_default):
-        sock = self._sock
         if timeout is timeout_default:
             timeout = self.timeout
         try:
-            return sock.send(data, flags)
+            return _real_socket.send(self, data, flags)
         except error:
             ex = sys.exc_info()[1]
             if ex.args[0] != EWOULDBLOCK or timeout == 0.0:
@@ -518,7 +324,7 @@ class socket(object):
                     return 0
                 raise
             try:
-                return sock.send(data, flags)
+                return _real_socket.send(self, data, flags)
             except error:
                 ex2 = sys.exc_info()[1]
                 if ex2.args[0] == EWOULDBLOCK:
@@ -547,9 +353,8 @@ class socket(object):
                     raise timeout('timed out')
 
     def sendto(self, *args):
-        sock = self._sock
         try:
-            return sock.sendto(*args)
+            return _real_socket.sendto(self, *args)
         except error:
             ex = sys.exc_info()[1]
             if ex.args[0] != EWOULDBLOCK or timeout == 0.0:
@@ -557,32 +362,12 @@ class socket(object):
             exc_clear()
             self._wait(self._write_event)
             try:
-                return sock.sendto(*args)
+                return _real_socket.sendto(self, *args)
             except error:
                 ex2 = sys.exc_info()[1]
                 if ex2.args[0] == EWOULDBLOCK:
                     return 0
                 raise
-
-    def setblocking(self, flag):
-        if flag:
-            self.timeout = None
-        else:
-            self.timeout = 0.0
-
-    def settimeout(self, howlong):
-        if howlong is not None:
-            try:
-                f = howlong.__float__
-            except AttributeError:
-                raise TypeError('a float is required')
-            howlong = f()
-            if howlong < 0.0:
-                raise ValueError('Timeout value out of range')
-        self.timeout = howlong
-
-    def gettimeout(self):
-        return self.timeout
 
     def shutdown(self, how):
         if how == 0:  # SHUT_RD
@@ -592,76 +377,9 @@ class socket(object):
         else:
             self.hub.cancel_wait(self._read_event, cancel_wait_ex)
             self.hub.cancel_wait(self._write_event, cancel_wait_ex)
-        self._sock.shutdown(how)
-
-    # delegate the functions that we haven't implemented to the real socket object
-    def __getattr__(self, name):
-        return getattr(self._sock, name)
+        _real_socket.shutdown(self, how)
 
 SocketType = socket
-
-if hasattr(_socket, 'socketpair'):
-
-    def socketpair(*args):
-        one, two = _socket.socketpair(*args)
-        return socket(_sock=one), socket(_sock=two)
-else:
-    __implements__.remove('socketpair')
-
-if hasattr(_socket, 'fromfd'):
-
-    def fromfd(*args):
-        return socket(_sock=_socket.fromfd(*args))
-else:
-    __implements__.remove('fromfd')
-
-
-try:
-    _GLOBAL_DEFAULT_TIMEOUT = __socket__._GLOBAL_DEFAULT_TIMEOUT
-except AttributeError:
-    _GLOBAL_DEFAULT_TIMEOUT = object()
-
-
-def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT, source_address=None):
-    """Connect to *address* and return the socket object.
-
-    Convenience function.  Connect to *address* (a 2-tuple ``(host,
-    port)``) and return the socket object.  Passing the optional
-    *timeout* parameter will set the timeout on the socket instance
-    before attempting to connect.  If no *timeout* is supplied, the
-    global default timeout setting returned by :func:`getdefaulttimeout`
-    is used. If *source_address* is set it must be a tuple of (host, port)
-    for the socket to bind as a source address before making the connection.
-    An host of '' or port 0 tells the OS to use the default.
-    """
-
-    host, port = address
-    err = None
-    for res in getaddrinfo(host, port, 0, SOCK_STREAM):
-        af, socktype, proto, _canonname, sa = res
-        sock = None
-        try:
-            sock = socket(af, socktype, proto)
-            if timeout is not _GLOBAL_DEFAULT_TIMEOUT:
-                sock.settimeout(timeout)
-            if source_address:
-                sock.bind(source_address)
-            sock.connect(sa)
-            return sock
-        except error:
-            err = sys.exc_info()[1]
-            # without exc_clear(), if connect() fails once, the socket is referenced by the frame in exc_info
-            # and the next bind() fails (see test__socket.TestCreateConnection)
-            # that does not happen with regular sockets though, because _socket.socket.connect() is a built-in.
-            # this is similar to "getnameinfo loses a reference" failure in test_socket.py
-            exc_clear()
-            if sock is not None:
-                sock.close()
-    if err is not None:
-        raise err
-    else:
-        raise error("getaddrinfo returns an empty list")
-
 
 class BlockingResolver(object):
 
@@ -698,42 +416,10 @@ def gethostbyaddr(ip_address):
 def getnameinfo(sockaddr, flags):
     return get_hub().resolver.getnameinfo(sockaddr, flags)
 
-
-def getfqdn(name=''):
-    """Get fully qualified domain name from name.
-
-    An empty argument is interpreted as meaning the local host.
-
-    First the hostname returned by gethostbyaddr() is checked, then
-    possibly existing aliases. In case no FQDN is available, hostname
-    from gethostname() is returned.
-    """
-    name = name.strip()
-    if not name or name == '0.0.0.0':
-        name = gethostname()
-    try:
-        hostname, aliases, ipaddrs = gethostbyaddr(name)
-    except error:
-        pass
-    else:
-        aliases.insert(0, hostname)
-        for name in aliases:
-            if '.' in name:
-                break
-        else:
-            name = hostname
-    return name
-
-
-try:
-    from gevent.ssl import sslwrap_simple as ssl, SSLError as sslerror, SSLSocket as SSLType
-    _have_ssl = True
-except ImportError:
-    _have_ssl = False
-
-
-if sys.version_info[:2] <= (2, 5) and _have_ssl:
-    __implements__.extend(['ssl', 'sslerror', 'SSLType'])
-
-
-__all__ = __implements__ + __extensions__ + __imports__
+#TODO move this into init.py so that the patch can be built first
+#if not PY3:
+#	try:
+#		from gevent.ssl import sslwrap_simple as ssl, SSLError as sslerror, SSLSocket as SSLType
+#		_have_ssl = True
+#	except ImportError:
+#		_have_ssl = False
