@@ -145,7 +145,7 @@ timeout_default = object()
 class socket(_real_socket):
 
     def __init__(self, *args, **kwargs):
-		_real_socket.__init__(self, *args, **kwargs)
+        _real_socket.__init__(self, *args, **kwargs)
 
         self.timeout = getattr(self, 'timeout', False)
         if self.timeout is False:
@@ -195,7 +195,7 @@ class socket(_real_socket):
         return client_socket, address
 
     def close(self, *args, **kwargs):
-		_real_socket.close(selfi, *args, **kwargs)
+        _real_socket.close(selfi, *args, **kwargs)
 
         self.hub.cancel_wait(self._read_event, cancel_wait_ex)
         self.hub.cancel_wait(self._write_event, cancel_wait_ex)
@@ -416,10 +416,3 @@ def gethostbyaddr(ip_address):
 def getnameinfo(sockaddr, flags):
     return get_hub().resolver.getnameinfo(sockaddr, flags)
 
-#TODO move this into init.py so that the patch can be built first
-#if not PY3:
-#	try:
-#		from gevent.ssl import sslwrap_simple as ssl, SSLError as sslerror, SSLSocket as SSLType
-#		_have_ssl = True
-#	except ImportError:
-#		_have_ssl = False
