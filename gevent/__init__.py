@@ -33,7 +33,7 @@ __all__ = ['get_hub',
 
 
 import sys
-from six import PY3
+from gevent.six import PY3
 if sys.platform == 'win32':
     __import__('socket')  # trigger WSAStartup call
 del sys
