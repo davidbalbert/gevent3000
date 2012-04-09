@@ -20,15 +20,15 @@ class SimpleStreamServer(StreamServer):
             print(('Failed to parse request line: %r' % (request_line, )))
             raise
         if path == '/ping':
-            client_socket.sendall('HTTP/1.0 200 OK\r\n\r\nPONG')
+            client_socket.sendall(b'HTTP/1.0 200 OK\r\n\r\nPONG')
         elif path in ['/long', '/short']:
-            client_socket.sendall('hello')
+            client_socket.sendall(b'hello')
             while True:
                 data = client_socket.recv(1)
                 if not data:
                     break
         else:
-            client_socket.sendall('HTTP/1.0 404 WTF?\r\n\r\n')
+            client_socket.sendall(b'HTTP/1.0 404 WTF?\r\n\r\n')
 
 
 class Settings:
@@ -40,7 +40,7 @@ class Settings:
     @staticmethod
     def assertAcceptedConnectionError(self):
         conn = self.makefile()
-        result = conn.read()
+        result = conn.read(100)
         assert not result, repr(result)
 
     assert500 = assertAcceptedConnectionError
@@ -80,12 +80,12 @@ class TestCase(greentest.TestCase):
     def makefile(self, timeout=0.1, bufsize=1):
         sock = socket.create_connection((self.server.server_host, self.server.server_port))
         fobj = sock.makefile(bufsize=bufsize)
-        fobj._sock.settimeout(timeout)
+        sock.settimeout(timeout)
         return fobj
 
     def send_request(self, url='/', timeout=0.1, bufsize=1):
         conn = self.makefile(timeout=timeout, bufsize=bufsize)
-        conn.write('GET %s HTTP/1.0\r\n\r\n' % url)
+        conn.write(b'GET %s HTTP/1.0\r\n\r\n' % url)
         conn.flush()
         return conn
 
@@ -129,7 +129,7 @@ class TestCase(greentest.TestCase):
     def assertRequestSucceeded(self, timeout=0.1):
         conn = self.makefile(timeout=timeout)
         conn.write('GET /ping HTTP/1.0\r\n\r\n')
-        result = conn.read()
+        result = conn.read(100)
         assert result.endswith('\r\n\r\nPONG'), repr(result)
 
     def start_server(self):

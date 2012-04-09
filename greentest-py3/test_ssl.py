@@ -103,7 +103,7 @@ class BasicTests(unittest.TestCase):
         # note that this uses an 'unofficial' function in _ssl.c,
         # provided solely for this test, to exercise the certificate
         # parsing code
-        p = ssl._ssl._test_decode_cert(CERTFILE, False)
+        p = ssl._ssl._test_decode_cert(CERTFILE)
         if test_support.verbose:
             sys.stdout.write("\n" + pprint.pformat(p) + "\n")
 
@@ -238,7 +238,7 @@ class NetworkedTests(unittest.TestCase):
             os.read(fd, 0)
         except OSError:
             ex = sys.exc_info()[1]
-            if ex[0] != errno.EBADF:
+            if ex.args[0] != errno.EBADF:
                 raise
 
     def test_non_blocking_handshake(self):
@@ -721,11 +721,11 @@ else:
             except ssl.SSLError:
                 x = sys.exc_info()[1]
                 if test_support.verbose:
-                    sys.stdout.write("\nSSLError is %s\n" % x[1])
+                    sys.stdout.write("\nSSLError is %s\n" % x.args[1])
             except socket.error:
                 x = sys.exc_info()[1]
                 if test_support.verbose:
-                    sys.stdout.write("\nsocket.error is %s\n" % x[1])
+                    sys.stdout.write("\nsocket.error is %s\n" % x.args[1])
             else:
                 raise AssertionError("Use of invalid cert should have failed!")
         finally:
@@ -733,7 +733,7 @@ else:
             server.join()
 
     def server_params_test(certfile, protocol, certreqs, cacertsfile,
-                           client_certfile, client_protocol=None, indata="FOO\n",
+                           client_certfile, client_protocol=None, indata=b"FOO\n",
                            ciphers=None, chatty=True, connectionchatty=False,
                            wrap_accepting_socket=False):
         """
