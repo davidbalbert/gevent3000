@@ -2,13 +2,15 @@ import sys
 import socket as __socket__
 from gevent.hub import get_hub
 from gevent.timeout import Timeout
+from gevent.zodiac import rebase
 
 # standard functions and classes that this module re-implements in a gevent-aware way:
-__implements__ = ['create_connection',
-                  'socket',
-                  'SocketType',
-                  'fromfd',
-                  'socketpair']
+__implements__ = ['socket',
+                'SocketType']
+
+__rebase__ = ['create_connection',
+              'fromfd',
+              'socketpair']
 
 __dns__ = ['getaddrinfo',
            'gethostbyname',
@@ -261,5 +263,9 @@ class socket(__socket__.socket):
                 raise
 
 del sock_timeout
+
+for name in __rebase__:
+    value = getattr(__socket__, name)
+    rebase(value, globals(), name, globals())
 
 __all__ = __implements__ + __extensions__ + __imports__
