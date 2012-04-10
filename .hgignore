@@ -3,6 +3,7 @@ syntax: glob
 *.pyc
 *.orig
 .*.swp
+*.sqlite3
 dist
 gevent.egg-info
 build
@@ -11,11 +12,14 @@ gevent/gevent.core.h
 gevent/gevent.ares.c
 gevent/gevent.ares.h
 gevent/gevent._semaphore.c
+gevent/_semaphore.cpython-*.so
+gevent/_semaphore.so
 gevent/core.so
 gevent/core.cpython*.so
 gevent/core_d.so
 gevent/ares.so
 gevent/ares_d.so
+gevent/ares.cpython-*.so
 gevent/core.pyx
 doc/_build
 doc/changelog.rst
