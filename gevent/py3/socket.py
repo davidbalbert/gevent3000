@@ -88,10 +88,12 @@ del name, value
 
 sock_timeout = __socket__.timeout
 
+timeout_default = object()
+
 class socket(__socket__.socket):
     def __init__(self, *args, **kwargs):
         super(socket, self).__init__(*args, **kwargs)
-        self._faketimeout = super(socket, self).gettimeout()
+        self.timeout = super(socket, self).gettimeout()
         super(socket, self).setblocking(False)
         fileno = self.fileno()
         self.hub = get_hub()
@@ -109,9 +111,9 @@ class socket(__socket__.socket):
 
     def setblocking(self, flag):
         if flag:
-            self._faketimeout = None
+            self.timeout = None
         else:
-            self._faketimeout = 0.0
+            self.timeout = 0.0
 
     def settimeout(self, howlong):
         if howlong is not None:
@@ -122,10 +124,10 @@ class socket(__socket__.socket):
             howlong = f()
             if howlong < 0.0:
                 raise ValueError('Timeout value out of range')
-        self._faketimeout = howlong
+        self.timeout = howlong
 
     def gettimeout(self):
-        return self._faketimeout
+        return self.timeout
 
     def _wait(self, watcher, timeout_exc=sock_timeout('timed out')):
         """Block the current greenlet until *watcher* has pending events.
@@ -136,9 +138,8 @@ class socket(__socket__.socket):
         If :func:`cancel_wait` is called, raise ``socket.error(EBADF, 'File descriptor was closed in another greenlet')``.
         """
         assert watcher.callback is None, 'This socket is already used by another greenlet: %r' % (watcher.callback, )
-        if self._faketimeout is not None:
-            print("TIMEOUT: ", self._faketimeout)
-            timeout = Timeout.start_new(self._faketimeout, timeout_exc)
+        if self.timeout is not None:
+            timeout = Timeout.start_new(self.timeout, timeout_exc)
 
         else:
             timeout = None
@@ -155,7 +156,7 @@ class socket(__socket__.socket):
                 sock = socket(self.family, self.type, self.proto, fileno=fd)
                 break
             except error as e:
-                if e.args[0] != EWOULDBLOCK or self._faketimeout == 0.0:
+                if e.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
             self._wait(self._read_event)
         return sock, addr
@@ -167,7 +168,7 @@ class socket(__socket__.socket):
             except error as e:
                 if e.args[0] == EBADF:
                     return ''
-                if e.args[0] != EWOULDBLOCK or self._faketimeout == 0.0:
+                if e.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
             try:
                 self._wait(self._read_event)
@@ -175,6 +176,90 @@ class socket(__socket__.socket):
                 if e.args[0] == EBADF:
                     return ''
                 raise
+
+    def recvfrom(self, *args):
+        while True:
+            try:
+                return super(socket, self).recvfrom(*args)
+            except error as e:
+                if e.args[0] != EWOULDBLOCK or self.timeout == 0.0:
+                    raise
+            self._wait(self._read_event)
+
+    def recvfrom_into(self, *args):
+        while True:
+            try:
+                return super(socket, self).recvfrom_into(*args)
+            except error as e:
+                if e.args[0] != EWOULDBLOCK or self.timeout == 0.0:
+                    raise
+            self._wait(self._read_event)
+
+    def recv_into(self, *args):
+        while True:
+            try:
+                return super(socket, self).recv_into(*args)
+            except error as e:
+                if e.args[0] == EBADF:
+                    return 0
+                if e.args[0] != EWOULDBLOCK or self.timeout == 0.0:
+                    raise
+            try:
+                self._wait(self._read_event)
+            except error as e:
+                if e.args[0] == EBADF:
+                    return 0
+                raise
+
+    def send(self, data, flags=0, timeout=timeout_default):
+        if timeout is timeout_default:
+            timeout = self.timeout
+        try:
+            return super(socket, self).send(data, flags)
+        except error as e:
+            if e.args[0] != EWOULDBLOCK or timeout == 0.0:
+                raise
+            try:
+                self._wait(self._write_event)
+            except error as e:
+                if e.args[0] == EBADF:
+                    return 0
+                raise
+            try:
+                return super(socket, self).send(data, flags)
+            except error as e:
+                if e.args[0] == EWOULDBLOCK:
+                    return 0
+                raise
+
+    def sendall(self, data, flags=0):
+        while True:
+            try:
+                return super(socket, self).sendall(data, flags)
+            except error as e:
+                if e.args[0] != EWOULDBLOCK or self.timeout == 0.0:
+                    raise
+                try:
+                    self._wait(self._write_event)
+                except error as e2:
+                    if e2.args[0] == EBADF:
+                        return 0
+                    raise
+
+    def sendto(self, *args):
+        try:
+            return super(socket, self).sendto(*args)
+        except error as e:
+            if e.args[0] != EWOULDBLOCK or self.timeout == 0.0:
+                raise
+            self._wait(self._write_event)
+            try:
+                return super(socket, self).sendto(*args)
+            except error as e2:
+                if e2.args[0] == EWOULDBLOCK:
+                    return 0
+                raise
+
 del sock_timeout
 
 __all__ = __implements__ + __extensions__ + __imports__
