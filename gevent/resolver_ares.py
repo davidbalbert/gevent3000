@@ -193,9 +193,7 @@ class Resolver(object):
         while True:
             ares = self.ares
             try:
-                res = self._gethostbyaddr(ip_address)
-                print('!!!!!!!!!', res)
-                return [(r[0].decode('idna'), r[1], r[2]) for r in res]
+                return self._gethostbyaddr(ip_address)
             except gaierror:
                 if ares is self.ares:
                     raise
