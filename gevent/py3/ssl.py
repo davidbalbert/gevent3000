@@ -3,8 +3,7 @@ from gevent.zodiac import rebase
 
 __implements__ = ['SSLSocket',
                   'wrap_socket',
-                  'get_server_certificate',
-                  'sslwrap_simple']
+                  'get_server_certificate']
 
 __imports__ = ['SSLContext',
                'SSLError',
