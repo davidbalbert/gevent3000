@@ -30,6 +30,8 @@ from os.path import basename, splitext
 import gevent
 from patched_tests_setup import get_switch_expected
 from gevent.hub import _get_hub
+from gevent.six import PY3
+
 from functools import wraps
 
 VERBOSE = sys.argv.count('-v') > 1
@@ -353,6 +355,9 @@ def walk_modules(basedir=None, modpath=None, include_so=False):
         if modpath is None:
             modpath = ''
     for fn in sorted(os.listdir(basedir)):
+        if (PY3 and fn == 'py2') or (not PY3 and fn == 'py3'):
+            continue
+
         path = os.path.join(basedir, fn)
         if os.path.isdir(path):
             pkg_init = os.path.join(path, '__init__.py')
