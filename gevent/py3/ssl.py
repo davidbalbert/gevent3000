@@ -1,12 +1,17 @@
 import ssl as __ssl__
 from gevent.zodiac import rebase
 
-__implements__ = ['SSLSocket',
-                  'wrap_socket',
-                  'get_server_certificate']
+__implements__ = ['SSLSocket']
 
-__imports__ = ['SSLContext',
-               'SSLError',
+__rebase__ = ['SSLContext',
+              'wrap_socket',
+              'get_server_certificate']
+
+__implements__ = __implements__ + __rebase__
+
+__imports__ = ['SSLError',
+               'CertificateError',
+               'match_hostname',
                'RAND_status',
                'RAND_egd',
                'RAND_add',
@@ -29,7 +34,16 @@ for name in dir(__ssl__):
             globals()[name] = value
             __imports__.append(name)
 
-for name in __implements__:
+rebase(__socket__.SSLSocket, globals(), '_SSLSocket', globals())
+
+class SSLSocket(_SSLSocket):
+    def read(self, *args):
+        pass
+    def write(self, *args):
+        pass
+    #etc
+
+for name in __rebase__:
     value = getattr(__ssl__, name)
     rebase(value, globals(), name, globals())
 
