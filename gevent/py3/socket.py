@@ -3,6 +3,27 @@ import socket as __socket__
 from gevent.hub import get_hub
 from gevent.timeout import Timeout
 
+# standard functions and classes that this module re-implements in a gevent-aware way:
+__implements__ = ['create_connection',
+                  'socket',
+                  'SocketType',
+                  'fromfd',
+                  'socketpair']
+
+__dns__ = ['getaddrinfo',
+           'gethostbyname',
+           'gethostbyname_ex',
+           'gethostbyaddr',
+           'getnameinfo',
+           'getfqdn']
+
+__implements__ += __dns__
+
+# non-standard functions that this module provides:
+__extensions__ = ['wait_read',
+                  'wait_write',
+                  'wait_readwrite']
+
 # standard functions and classes that this module re-imports
 __imports__ = ['error',
                'gaierror',
@@ -155,3 +176,5 @@ class socket(__socket__.socket):
                     return ''
                 raise
 del sock_timeout
+
+__all__ = __implements__ + __extensions__ + __imports__
