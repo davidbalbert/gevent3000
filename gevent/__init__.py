@@ -28,8 +28,8 @@ __all__ = ['get_hub',
            'fork',
            'reinit',
            'run',
-		   'socket',
-		   'ssl']
+       'socket',
+       'ssl']
 
 
 import sys
@@ -48,6 +48,14 @@ try:
     from gevent.hub import fork
 except ImportError:
     __all__.remove('fork')
+
+# if PY3:
+#   socket = __import__('gevent.py3.socket')
+#   ssl = __import__('gevent.py3.ssl')
+# else:
+#   socket = __import__('gevent.py2.socket')
+#   ssl = __import__('gevent.py2.ssl')
+
 
 if PY3:
     from gevent.py3 import socket
