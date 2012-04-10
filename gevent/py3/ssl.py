@@ -37,10 +37,43 @@ for name in dir(__ssl__):
 rebase(__socket__.SSLSocket, globals(), '_SSLSocket', globals())
 
 class SSLSocket(_SSLSocket):
-    def read(self, *args):
-        pass
-    def write(self, *args):
-        pass
+
+    def read(self, len=1024):
+        """Read up to LEN bytes and return them.
+        Return zero-length string on EOF."""
+        while True:
+            try:
+                return super(SSLSocket, self).read(len)
+            except SSLError as e:
+				errno = ex.args[0]
+                if errno in [SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE] and self.timeout != 0.0:
+                    try:
+						event = self._read_event if errno == SSL_ERROR_WANT_READ else self._write_event
+                        self._wait(event, timeout_exc=_SSLErrorReadTimeout)
+                    except socket_error as ex:
+                        if ex.args[0] == EBADF:
+                            return ''
+                else:
+                    raise
+				
+    def write(self, data):
+        """Read up to LEN bytes and return them.
+        Return zero-length string on EOF."""
+        while True:
+            try:
+                return super(SSLSocket, self).write(data)
+            except SSLError as e:
+				errno = ex.args[0]
+                if errno in [SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE] and self.timeout != 0.0:
+                    try:
+						event = self._read_event if errno == SSL_ERROR_WANT_READ else self._write_event
+                        self._wait(event, timeout_exc=_SSLErrorWriteTimeout)
+                    except socket_error as ex:
+                        if ex.args[0] == EBADF:
+                            return ''
+                else:
+                    raise
+
     #etc
 
 for name in __rebase__:
