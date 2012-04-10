@@ -10,7 +10,8 @@ __implements__ = ['socket',
 
 __rebase__ = ['create_connection',
               'fromfd',
-              'socketpair']
+              'socketpair',
+              'getfqdn']
 
 __dns__ = ['getaddrinfo',
            'gethostbyname',
@@ -262,10 +263,87 @@ class socket(__socket__.socket):
                     return 0
                 raise
 
+    def close(self, *args, **kwargs):
+        self.hub.cancel_wait(self._read_event, cancel_wait_ex)
+        self.hub.cancel_wait(self._write_event, cancel_wait_ex)
+        return super(socket, self).close(*args, **kwargs)
+
+    def shutdown(self, how):
+        if how == 0:  # SHUT_RD
+            self.hub.cancel_wait(self._read_event, cancel_wait_ex)
+        elif how == 1:  # SHUT_WR
+            self.hub.cancel_wait(self._write_event, cancel_wait_ex)
+        else:
+            self.hub.cancel_wait(self._read_event, cancel_wait_ex)
+            self.hub.cancel_wait(self._write_event, cancel_wait_ex)
+        super(socket, self).shutdown(how)
+
+    def connect(self, address):
+        if self.timeout == 0.0:
+            return super(socket, self).connect(address)
+        if isinstance(address, tuple):
+            r = getaddrinfo(address[0], address[1], self.family, self.type, self.proto)
+            address = r[0][-1]
+        if self.timeout is not None:
+            timer = Timeout.start_new(self.timeout, timeout('timed out'))
+        else:
+            timer = None
+        try:
+            while True:
+                err = self.getsockopt(SOL_SOCKET, SO_ERROR)
+                if err:
+                    raise error(err, strerror(err))
+                result = self.connect_ex(address)
+                if not result or result == EISCONN:
+                    break
+                elif (result in (EWOULDBLOCK, EINPROGRESS, EALREADY)) or (result == EINVAL and is_windows):
+                    self._wait(self._write_event)
+                else:
+                    raise error(result, strerror(result))
+        finally:
+            if timer is not None:
+                timer.cancel()
+
+
 del sock_timeout
 
 for name in __rebase__:
     value = getattr(__socket__, name)
     rebase(value, globals(), name, globals())
+
+class BlockingResolver(object):
+
+    def __init__(self, hub=None):
+        pass
+
+    def close(self):
+        pass
+
+    for method in ['gethostbyname',
+                   'gethostbyname_ex',
+                   'getaddrinfo',
+                   'gethostbyaddr',
+                   'getnameinfo']:
+        locals()[method] = staticmethod(getattr(__socket__, method))
+
+
+def gethostbyname(hostname):
+    return get_hub().resolver.gethostbyname(hostname)
+
+
+def gethostbyname_ex(hostname):
+    return get_hub().resolver.gethostbyname_ex(hostname)
+
+
+def getaddrinfo(host, port, family=0, socktype=0, proto=0, flags=0):
+    return get_hub().resolver.getaddrinfo(host, port, family, socktype, proto, flags)
+
+
+def gethostbyaddr(ip_address):
+    return get_hub().resolver.gethostbyaddr(ip_address)
+
+
+def getnameinfo(sockaddr, flags):
+    return get_hub().resolver.getnameinfo(sockaddr, flags)
 
 __all__ = __implements__ + __extensions__ + __imports__
