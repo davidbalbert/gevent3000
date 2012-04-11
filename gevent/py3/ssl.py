@@ -1,6 +1,11 @@
 import ssl as __ssl__
 from gevent.zodiac import rebase
-from gevent.socket import socket, timeout_default
+from gevent.socket import getnameinfo as _getnameinfo
+from gevent.socket import error as socket_error
+from gevent.socket import socket, timeout_default, AF_INET, SOCK_STREAM
+import base64        # for DER-to-PEM translation
+import traceback
+import errno
 
 __implements__ = ['SSLSocket']
 
