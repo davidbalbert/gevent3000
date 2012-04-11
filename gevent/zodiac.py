@@ -6,7 +6,6 @@ except ImportError:
 import types
 import imp
 
-
 def _create_closure_cell(obj):
 	def ret(): obj
 	return ret.__closure__[0]
@@ -35,7 +34,7 @@ def rebase_function(f, target, new_name=None, ns=None):
 		f.__defaults__,
 		new_closure
 	)
-
+	
 	if isinstance(target, dict):
 		target[new_name] = new_f
 	else:
@@ -60,7 +59,8 @@ def rebase_class(cls, target, new_name=None, ns=None):
 	new_cls._my_class = new_cls
 
 	for name, item in cls.__dict__.items():
-		if name in ('__dict__', '__bases__', '__weakref__', '__name__', '__module__', '__doc__'): continue
+		if name in ('__dict__', '__slots__', '__bases__', '__weakref__', '__name__', '__module__', '__doc__'): continue
+		if isinstance(item, types.MemberDescriptorType): continue
 		rebase(item, new_cls, name, ns)
 
 	if isinstance(target, dict):
@@ -78,4 +78,5 @@ def rebase(obj, target, new_name=None, ns=None):
 		if isinstance(target, dict):
 			target[new_name] = obj
 		else:
-			setattr(target, new_name, obj)
+			setattr(target, new_name, obj) 
+
