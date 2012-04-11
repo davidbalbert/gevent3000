@@ -1,5 +1,6 @@
 import ssl as __ssl__
 from gevent.zodiac import rebase
+from gevent.socket import socket, timeout_default
 
 __implements__ = ['SSLSocket']
 
@@ -38,23 +39,26 @@ rebase(__socket__.SSLSocket, globals(), '_SSLSocket', globals())
 
 class SSLSocket(_SSLSocket):
 
-    def read(self, len=1024):
+	def _handle_wait_exc(self, e, timeout):
+		errno = e.args[0]
+		if errno in [SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE] and self.timeout != 0.0:
+			try:
+				event = self._read_event if errno == SSL_ERROR_WANT_READ else self._write_event
+				self._wait(event, timeout_exc=_SSLErrorReadTimeout)
+			except socket_error as ex:
+				if ex.args[0] == EBADF:
+					return ''
+		else:
+			raise
+
+    def read(self, len=0, buffer=None):
         """Read up to LEN bytes and return them.
         Return zero-length string on EOF."""
         while True:
             try:
-                return super(SSLSocket, self).read(len)
+                return super(SSLSocket, self).read(len, buffer, flags)
             except SSLError as e:
-				errno = ex.args[0]
-                if errno in [SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE] and self.timeout != 0.0:
-                    try:
-						event = self._read_event if errno == SSL_ERROR_WANT_READ else self._write_event
-                        self._wait(event, timeout_exc=_SSLErrorReadTimeout)
-                    except socket_error as ex:
-                        if ex.args[0] == EBADF:
-                            return ''
-                else:
-                    raise
+				self._handle_wait_exc(e, self.timeout)
 				
     def write(self, data):
         """Read up to LEN bytes and return them.
@@ -63,18 +67,47 @@ class SSLSocket(_SSLSocket):
             try:
                 return super(SSLSocket, self).write(data)
             except SSLError as e:
-				errno = ex.args[0]
-                if errno in [SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE] and self.timeout != 0.0:
-                    try:
-						event = self._read_event if errno == SSL_ERROR_WANT_READ else self._write_event
-                        self._wait(event, timeout_exc=_SSLErrorWriteTimeout)
-                    except socket_error as ex:
-                        if ex.args[0] == EBADF:
-                            return ''
-                else:
-                    raise
+				self._handle_wait_exc(e, self.timeout)
 
-    #etc
+    def send(self, data, flags=0, timeout=timeout_default):
+        if timeout is timeout_default:
+            timeout = self.timeout
+        if self._sslobj:
+            if flags != 0:
+                raise ValueError(
+                    "non-zero flags not allowed in calls to send() on %s" %
+                    self.__class__)
+            while True:
+                try:
+                    v = self._sslobj.write(data)
+                except SSLError as e:
+					errno = e.args[0]
+					if errno in [SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE] and timeout == 0.0:
+						return 0
+					self._handle_wait_exc(e, timeout)
+                else:
+                    return v
+        else:
+            return socket.send(self, data, flags, timeout)
+
+    def _sslobj_shutdown(self):
+        while True:
+            try:
+                return self._sslobj.shutdown()
+            except SSLError as e:
+                if e.args[0] == SSL_ERROR_EOF and self.suppress_ragged_eofs:
+                    return ''
+				self._handle_wait_exc(e, self.timeout)
+
+	#TODO: make sure that returning s is okay here; 
+	# that is, make sure shutdown returns a gevent socket
+    def unwrap(self):
+        if self._sslobj:
+            s = self._sslobj_shutdown()
+            self._sslobj = None
+            return s
+        else:
+            raise ValueError("No SSL wrapper around " + str(self))
 
 for name in __rebase__:
     value = getattr(__ssl__, name)
