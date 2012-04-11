@@ -47,6 +47,7 @@ __imports__ = ['error',
                'getdefaulttimeout',
                'setdefaulttimeout',
 			   '_GLOBAL_DEFAULT_TIMEOUT',
+			   'SocketIO',
                # Windows:
                'errorTab']
 
@@ -90,8 +91,67 @@ for name in __socket__.__all__:
 
 del name, value
 
-sock_timeout = __socket__.timeout
+def wait(io, timeout=None, timeout_exc=timeout('timed out')):
+    """Block the current greenlet until *io* is ready.
 
+    If *timeout* is non-negative, then *timeout_exc* is raised after *timeout* second has passed.
+    By default *timeout_exc* is ``socket.timeout('timed out')``.
+
+    If :func:`cancel_wait` is called, raise ``socket.error(EBADF, 'File descriptor was closed in another greenlet')``.
+    """
+    assert io.callback is None, 'This socket is already used by another greenlet: %r' % (io.callback, )
+    if timeout is not None:
+        timeout = Timeout.start_new(timeout, timeout_exc)
+    try:
+        return get_hub().wait(io)
+    finally:
+        if timeout is not None:
+            timeout.cancel()
+    # rename "io" to "watcher" because wait() works with any watcher
+
+
+def wait_read(fileno, timeout=None, timeout_exc=timeout('timed out')):
+    """Block the current greenlet until *fileno* is ready to read.
+
+    If *timeout* is non-negative, then *timeout_exc* is raised after *timeout* second has passed.
+    By default *timeout_exc* is ``socket.timeout('timed out')``.
+
+    If :func:`cancel_wait` is called, raise ``socket.error(EBADF, 'File descriptor was closed in another greenlet')``.
+    """
+    io = get_hub().loop.io(fileno, 1)
+    return wait(io, timeout, timeout_exc)
+
+
+def wait_write(fileno, timeout=None, timeout_exc=timeout('timed out'), event=None):
+    """Block the current greenlet until *fileno* is ready to write.
+
+    If *timeout* is non-negative, then *timeout_exc* is raised after *timeout* second has passed.
+    By default *timeout_exc* is ``socket.timeout('timed out')``.
+
+    If :func:`cancel_wait` is called, raise ``socket.error(EBADF, 'File descriptor was closed in another greenlet')``.
+    """
+    io = get_hub().loop.io(fileno, 2)
+    return wait(io, timeout, timeout_exc)
+
+
+def wait_readwrite(fileno, timeout=None, timeout_exc=timeout('timed out'), event=None):
+    """Block the current greenlet until *fileno* is ready to read or write.
+
+    If *timeout* is non-negative, then *timeout_exc* is raised after *timeout* second has passed.
+    By default *timeout_exc* is ``socket.timeout('timed out')``.
+
+    If :func:`cancel_wait` is called, raise ``socket.error(EBADF, 'File descriptor was closed in another greenlet')``.
+    """
+    io = get_hub().loop.io(fileno, 3)
+    return wait(io, timeout, timeout_exc)
+
+
+cancel_wait_ex = error(EBADF, 'File descriptor was closed in another greenlet')
+
+def cancel_wait(watcher):
+    get_hub().cancel_wait(watcher, cancel_wait_ex)
+
+sock_timeout = __socket__.timeout
 timeout_default = object()
 
 class socket(__socket__.socket):
