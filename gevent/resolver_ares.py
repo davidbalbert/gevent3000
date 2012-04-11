@@ -42,7 +42,7 @@ class Resolver(object):
 
     def gethostbyname(self, hostname, family=AF_INET):
         hostname = _resolve_special(hostname, family)
-        return self.gethostbyname_ex(hostname.decode('idna'), family)[-1][0]
+        return self.gethostbyname_ex(hostname.encode('idna'), family)[-1][0]
 
     def gethostbyname_ex(self, hostname, family=AF_INET):
         while True:
