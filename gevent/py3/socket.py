@@ -46,6 +46,7 @@ __imports__ = ['error',
                'getservbyport',
                'getdefaulttimeout',
                'setdefaulttimeout',
+			   '_GLOBAL_DEFAULT_TIMEOUT',
                # Windows:
                'errorTab']
 
@@ -303,9 +304,9 @@ class socket(__socket__.socket):
         finally:
             if timer is not None:
                 timer.cancel()
-
-
 del sock_timeout
+
+SocketType = socket
 
 for name in __rebase__:
     value = getattr(__socket__, name)
