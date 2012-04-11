@@ -22,8 +22,8 @@ __imports__ = ['SSLError',
                'PEM_cert_to_DER_cert']
 
 for name in __imports__[:]:
-	value = getattr(__ssl__, name)
-	globals()[name] = value
+    value = getattr(__ssl__, name)
+    globals()[name] = value
 
 for name in dir(__ssl__):
     if not name.startswith('_'):
@@ -36,17 +36,17 @@ rebase(__socket__.SSLSocket, globals(), '_SSLSocket', globals())
 
 class SSLSocket(_SSLSocket):
 
-	def _handle_wait_exc(self, e, timeout):
-		errno = e.args[0]
-		if errno in [SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE] and self.timeout != 0.0:
-			try:
-				event = self._read_event if errno == SSL_ERROR_WANT_READ else self._write_event
-				self._wait(event, timeout_exc=_SSLErrorReadTimeout)
-			except socket_error as ex:
-				if ex.args[0] == EBADF:
-					return ''
-		else:
-			raise
+    def _handle_wait_exc(self, e, timeout):
+        errno = e.args[0]
+        if errno in [SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE] and self.timeout != 0.0:
+            try:
+                event = self._read_event if errno == SSL_ERROR_WANT_READ else self._write_event
+                self._wait(event, timeout_exc=_SSLErrorReadTimeout)
+            except socket_error as ex:
+                if ex.args[0] == EBADF:
+                    return ''
+        else:
+            raise
 
     def read(self, len=0, buffer=None):
         """Read up to LEN bytes and return them.
@@ -55,8 +55,8 @@ class SSLSocket(_SSLSocket):
             try:
                 return super(SSLSocket, self).read(len, buffer, flags)
             except SSLError as e:
-				self._handle_wait_exc(e, self.timeout)
-				
+                self._handle_wait_exc(e, self.timeout)
+                
     def write(self, data):
         """Read up to LEN bytes and return them.
         Return zero-length string on EOF."""
@@ -64,7 +64,7 @@ class SSLSocket(_SSLSocket):
             try:
                 return super(SSLSocket, self).write(data)
             except SSLError as e:
-				self._handle_wait_exc(e, self.timeout)
+                self._handle_wait_exc(e, self.timeout)
 
     def send(self, data, flags=0, timeout=timeout_default):
         if timeout is timeout_default:
@@ -78,10 +78,10 @@ class SSLSocket(_SSLSocket):
                 try:
                     v = self._sslobj.write(data)
                 except SSLError as e:
-					errno = e.args[0]
-					if errno in [SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE] and timeout == 0.0:
-						return 0
-					self._handle_wait_exc(e, timeout)
+                    errno = e.args[0]
+                    if errno in [SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE] and timeout == 0.0:
+                        return 0
+                    self._handle_wait_exc(e, timeout)
                 else:
                     return v
         else:
@@ -94,10 +94,10 @@ class SSLSocket(_SSLSocket):
             except SSLError as e:
                 if e.args[0] == SSL_ERROR_EOF and self.suppress_ragged_eofs:
                     return ''
-				self._handle_wait_exc(e, self.timeout)
+                self._handle_wait_exc(e, self.timeout)
 
-	#TODO: make sure that returning s is okay here; 
-	# that is, make sure shutdown returns a gevent socket
+    #TODO: make sure that returning s is okay here; 
+    # that is, make sure shutdown returns a gevent socket
     def unwrap(self):
         if self._sslobj:
             s = self._sslobj_shutdown()
