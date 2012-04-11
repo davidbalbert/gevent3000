@@ -32,7 +32,7 @@ for name in dir(__ssl__):
             globals()[name] = value
             __imports__.append(name)
 
-rebase(__socket__.SSLSocket, globals(), '_SSLSocket', globals())
+rebase(__ssl__.SSLSocket, globals(), '_SSLSocket', globals())
 
 class SSLSocket(_SSLSocket):
 
