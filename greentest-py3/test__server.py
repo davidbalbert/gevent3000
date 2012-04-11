@@ -111,13 +111,12 @@ class TestCase(greentest.TestCase):
         Settings.assertPoolFull(self)
 
     def assertNotAccepted(self):
-        conn = self.makefile()
         conn.write('GET / HTTP/1.0\r\n\r\n')
         conn.flush()
         result = ''
         try:
             while True:
-                data = conn._sock.recv(1)
+                data = conn.buffer.raw._sock.recv(1)
                 if not data:
                     break
                 result += data
