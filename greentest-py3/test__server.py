@@ -79,12 +79,12 @@ class TestCase(greentest.TestCase):
 
     def makefile(self, timeout=0.1, bufsize=1):
         sock = socket.create_connection((self.server.server_host, self.server.server_port))
-        fobj = sock.makefile(bufsize=bufsize)
+        fobj = sock.makefile(buffering=bufsize)
         sock.settimeout(timeout)
         return fobj
 
     def send_request(self, url='/', timeout=0.1, bufsize=1):
-        conn = self.makefile(timeout=timeout, bufsize=bufsize)
+        conn = self.makefile(timeout=timeout, buffering=bufsize)
         conn.write(b'GET %s HTTP/1.0\r\n\r\n' % url)
         conn.flush()
         return conn
