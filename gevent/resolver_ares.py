@@ -110,7 +110,7 @@ class Resolver(object):
 
         socktype_proto = [(SOCK_STREAM, 6), (SOCK_DGRAM, 17), (SOCK_RAW, 0)]
         if socktype:
-            socktype_proto = [(x, y) for (x, y) in socktype_proto if socktype == x]
+            socktype_proto = [(x, y) for (x, y) in socktype_proto if socktype & x == x]
         if proto:
             socktype_proto = [(x, y) for (x, y) in socktype_proto if proto == y]
 
