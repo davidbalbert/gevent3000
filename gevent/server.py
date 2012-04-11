@@ -89,7 +89,7 @@ class StreamServer(BaseServer):
             if sys.exc_info()[0] == EWOULDBLOCK:
                 return
             raise
-        return socket(_sock=client_socket), address
+        return client_socket, address
 
     def wrap_socket_and_handle(self, client_socket, address):
         # used in case of ssl sockets

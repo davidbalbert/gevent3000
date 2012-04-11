@@ -39,7 +39,7 @@ class Settings:
 
     @staticmethod
     def assertAcceptedConnectionError(self):
-        conn = self.makefile()
+        sock, conn = self.makefile()
         result = conn.read(100)
         assert not result, repr(result)
 
@@ -81,17 +81,17 @@ class TestCase(greentest.TestCase):
         sock = socket.create_connection((self.server.server_host, self.server.server_port))
         fobj = sock.makefile(mode='rw', buffering=bufsize)
         sock.settimeout(timeout)
-        return fobj
+        return sock, fobj
 
     def send_request(self, url='/', timeout=0.1, bufsize=1):
-        conn = self.makefile(timeout=timeout, bufsize=bufsize)
+        sock, conn = self.makefile(timeout=timeout, bufsize=bufsize)
         conn.write('GET %s HTTP/1.0\r\n\r\n' % url)
         conn.flush()
-        return conn
+        return sock, conn
 
     def assertConnectionRefused(self):
         try:
-            conn = self.makefile()
+            sock, conn = self.makefile()
             raise AssertionError('Connection was not refused: %r' % (conn._sock, ))
         except socket.error:
             ex = sys.exc_info()[1]
@@ -111,12 +111,13 @@ class TestCase(greentest.TestCase):
         Settings.assertPoolFull(self)
 
     def assertNotAccepted(self):
+        sock, conn = self.makefile()
         conn.write('GET / HTTP/1.0\r\n\r\n')
         conn.flush()
         result = ''
         try:
             while True:
-                data = conn.buffer.raw._sock.recv(1)
+                data = sock.recv(1)
                 if not data:
                     break
                 result += data
@@ -126,7 +127,7 @@ class TestCase(greentest.TestCase):
         assert result.startswith('HTTP/1.0 500 Internal Server Error'), repr(result)
 
     def assertRequestSucceeded(self, timeout=0.1):
-        conn = self.makefile(timeout=timeout)
+        sock, conn = self.makefile(timeout=timeout)
         conn.write('GET /ping HTTP/1.0\r\n\r\n')
         result = conn.read(100)
         assert result.endswith('\r\n\r\nPONG'), repr(result)
@@ -250,7 +251,7 @@ class TestDefaultSpawn(TestCase):
     def test_server_closes_client_sockets(self):
         self.server = self.ServerClass(('127.0.0.1', 0), lambda *args: [])
         self.server.start()
-        conn = self.send_request()
+        sock, conn = self.send_request()
         timeout = gevent.Timeout.start_new(1)
         # use assert500 below?
         try:
@@ -309,14 +310,14 @@ class TestPoolSpawn(TestDefaultSpawn):
 
     def test_pool_full(self):
         self.init_server()
-        short_request = self.send_request('/short')
-        long_request = self.send_request('/long')
+        short_sock, short_request = self.send_request('/short')
+        long_sock, long_request = self.send_request('/long')
         # keep long_request in scope, otherwise the connection will be closed
         gevent.sleep(0.01)
         self.assertPoolFull()
         self.assertPoolFull()
         self.assertPoolFull()
-        short_request._sock.close()
+        short_sock.close()
         # gevent.http and gevent.wsgi cannot detect socket close, so sleep a little
         # to let /short request finish
         gevent.sleep(0.1)
