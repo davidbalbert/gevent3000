@@ -22,11 +22,8 @@ __imports__ = ['SSLError',
                'PEM_cert_to_DER_cert']
 
 for name in __imports__[:]:
-    try:
-        value = getattr(__ssl__, name)
-        globals()[name] = value
-    except AttributeError:
-        __imports__.remove(name)
+	value = getattr(__ssl__, name)
+	globals()[name] = value
 
 for name in dir(__ssl__):
     if not name.startswith('_'):
