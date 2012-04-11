@@ -84,7 +84,7 @@ class TestCase(greentest.TestCase):
         return fobj
 
     def send_request(self, url='/', timeout=0.1, bufsize=1):
-        conn = self.makefile(timeout=timeout, buffering=bufsize)
+        conn = self.makefile(timeout=timeout, bufsize=bufsize)
         conn.write(b'GET %s HTTP/1.0\r\n\r\n' % url)
         conn.flush()
         return conn
