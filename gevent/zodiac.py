@@ -6,6 +6,15 @@ except ImportError:
 import types
 import imp
 
+
+__all__ = ['_get',
+           '_set',
+           '_create_closure_cell',
+           'rebase_function',
+           'rebase_class',
+           'rebase',
+           '_get_default']
+
 _get_default = object()
 def _get(obj, name, default=_get_default):
 	if isinstance(obj, dict):

@@ -354,7 +354,7 @@ def walk_modules(basedir=None, modpath=None, include_so=False):
         if modpath is None:
             modpath = ''
     for fn in sorted(os.listdir(basedir)):
-        if (PY3 and fn == 'py2') or (not PY3 and fn == 'py3'):
+        if (fn in ['py2', 'py3']):
             continue
 
         path = os.path.join(basedir, fn)
