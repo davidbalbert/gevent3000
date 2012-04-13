@@ -39,6 +39,10 @@ for name in dir(__ssl__):
 
 rebase(__ssl__.SSLSocket, globals(), '_SSLSocket', globals())
 
+_SSLErrorReadTimeout = SSLError('The read operation timed out')
+_SSLErrorWriteTimeout = SSLError('The write operation timed out')
+_SSLErrorHandshakeTimeout = SSLError('The handshake operation timed out')
+
 class SSLSocket(_SSLSocket):
 
     def _handle_wait_exc(self, e, timeout):
@@ -58,7 +62,7 @@ class SSLSocket(_SSLSocket):
         Return zero-length string on EOF."""
         while True:
             try:
-                return super(SSLSocket, self).read(len, buffer, flags)
+                return super(SSLSocket, self).read(len, buffer)
             except SSLError as e:
                 self._handle_wait_exc(e, self.timeout)
                 
@@ -91,6 +95,14 @@ class SSLSocket(_SSLSocket):
                     return v
         else:
             return socket.send(self, data, flags, timeout)
+
+    def do_handshake(self):
+        """Perform a TLS/SSL handshake."""
+        while True:
+            try:
+                return super(SSLSocket, self).do_handshake()
+            except SSLError as e:
+                self._handle_wait_exc(e, self.timeout)
 
     def _sslobj_shutdown(self):
         while True:
