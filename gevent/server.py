@@ -85,8 +85,7 @@ class StreamServer(BaseServer):
         try:
             client_socket, address = self.socket.accept()
         except _socket.error:
-
-            if sys.exc_info()[0] == EWOULDBLOCK:
+            if sys.exc_info()[1].args[0] == EWOULDBLOCK:
                 return
             raise
         return client_socket, address
