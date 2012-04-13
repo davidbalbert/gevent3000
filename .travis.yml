@@ -3,4 +3,4 @@ python:
   - 2.7
   - 3.2
 install: pip install cython greenlet
-script: python setup.py install; cd greentest; python testrunner.py
+script: python setup.py install && python setup.py test

@@ -11,7 +11,7 @@ from glob import glob
 #try:
 #    from setuptools import Extension, setup
 #except ImportError:
-from distutils.core import Extension, setup
+from distutils.core import Extension, setup, Command
 from distutils.command.build_ext import build_ext
 from distutils.command.sdist import sdist as _sdist
 from distutils.errors import CCompilerError, DistutilsExecError, DistutilsPlatformError
@@ -236,6 +236,19 @@ class my_build_ext(build_ext):
             traceback.print_exc()
         return result
 
+class test(Command):
+    user_options = []
+
+    def initialize_options(self):
+        self._dir = os.getcwd()
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        print("cd greentest%s && python testrunner.py" % ("-py3" if sys.version_info[0] >= 3 else ""))
+        if os.system("cd greentest%s && python testrunner.py" % ("-py3" if sys.version_info[0] >= 3 else "")):
+            sys.exit(1)
 
 class BuildFailed(Exception):
     pass
@@ -264,7 +277,7 @@ def run_setup(ext_modules):
         url='http://www.gevent.org/',
 		packages=packages,
         ext_modules=ext_modules,
-        cmdclass=dict(build_ext=my_build_ext, sdist=sdist),
+        cmdclass=dict(build_ext=my_build_ext, sdist=sdist, test=test),
         install_requires=['greenlet'],
         classifiers=[
         "License :: OSI Approved :: MIT License",
