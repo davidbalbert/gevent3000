@@ -130,7 +130,7 @@ class TestCase(greentest.TestCase):
         sock, conn = self.makefile(timeout=timeout)
         conn.write('GET /ping HTTP/1.0\r\n\r\n')
         result = conn.read(100)
-        assert result.endswith('\r\n\r\nPONG'), repr(result)
+        assert result.endswith('\n\nPONG'), repr(result)
 
     def start_server(self):
         self.server.start()
