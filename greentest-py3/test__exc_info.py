@@ -2,7 +2,6 @@ import gevent
 import sys
 import greentest
 
-sys.exc_clear()
 
 
 class ExpectedError(Exception):
