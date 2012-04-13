@@ -49,7 +49,7 @@ class TestGreenIo(TestCase):
                 fd = conn.makefile(mode='rw')
                 fd.write('hello')
                 fd.close()
-                conn.send('\n')
+                conn.send(b'\n')
                 conn.close()
                 r = fd.write('a')
                 assert r is None, r
