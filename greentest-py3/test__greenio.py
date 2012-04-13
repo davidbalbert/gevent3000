@@ -31,7 +31,7 @@ class TestGreenIo(TestCase):
             # by closing the socket prior to using the made file
             try:
                 conn, addr = listener.accept()
-                fd = conn.makefile()
+                fd = conn.makefile(mode='rw')
                 conn.close()
                 fd.write('hello\n')
                 fd.close()
@@ -46,7 +46,7 @@ class TestGreenIo(TestCase):
             # by closing the made file and then sending a character
             try:
                 conn, addr = listener.accept()
-                fd = conn.makefile()
+                fd = conn.makefile(mode='rw')
                 fd.write('hello')
                 fd.close()
                 conn.send('\n')
@@ -59,7 +59,7 @@ class TestGreenIo(TestCase):
 
         def did_it_work(server):
             client = socket.create_connection(('127.0.0.1', server.getsockname()[1]))
-            fd = client.makefile()
+            fd = client.makefile(mode='rw')
             client.close()
             assert fd.readline() == 'hello\n'
             assert fd.read() == ''
@@ -84,7 +84,7 @@ class TestGreenIo(TestCase):
             # closing the file object should close everything
             try:
                 conn, addr = listener.accept()
-                conn = conn.makefile()
+                conn = conn.makefile(mode='rw')
                 conn.write('hello\n')
                 conn.close()
                 r = conn.write('a')
