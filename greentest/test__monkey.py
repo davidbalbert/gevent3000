@@ -12,4 +12,6 @@ assert 'built-in' not in repr(threading._sleep), repr(threading._sleep)
 
 import socket
 from gevent import socket as gevent_socket
-assert socket.create_connection is gevent_socket.create_connection
+assert socket.socket is gevent_socket.socket
+
+assert monkey.saved

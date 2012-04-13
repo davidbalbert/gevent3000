@@ -12,24 +12,18 @@ import os
 import errno
 import pprint
 
-try:
+if sys.version_info[0] == 3:
     from urllib import request as urllib
-except:
-    import urllib.request, urllib.parse, urllib.error
-
-try:
-    import urllib.parse
-except ImportError:
     from urllib import parse as urlparse
+    from http.server import HTTPServer, SimpleHTTPRequestHandler
+else:
+    import urllib
+    import urlparse
+    from BaseHTTPServer import HTTPServer
+    from SimpleHTTPServer import SimpleHTTPRequestHandler
 
 import traceback
 import weakref
-
-try:
-    from http.server import HTTPServer
-    from http.server import SimpleHTTPRequestHandler
-except ImportError:
-    from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 try:
     bytearray
@@ -103,7 +97,7 @@ class BasicTests(unittest.TestCase):
         # note that this uses an 'unofficial' function in _ssl.c,
         # provided solely for this test, to exercise the certificate
         # parsing code
-        p = ssl._ssl._test_decode_cert(CERTFILE)
+        p = ssl._ssl._test_decode_cert(CERTFILE, False)
         if test_support.verbose:
             sys.stdout.write("\n" + pprint.pformat(p) + "\n")
 
@@ -119,7 +113,7 @@ class BasicTests(unittest.TestCase):
         n = ssl.OPENSSL_VERSION_NUMBER
         t = ssl.OPENSSL_VERSION_INFO
         s = ssl.OPENSSL_VERSION
-        self.assertIsInstance(n, (int, int))
+        self.assertIsInstance(n, (int))
         self.assertIsInstance(t, tuple)
         self.assertIsInstance(s, str)
         # Some sanity checks follow

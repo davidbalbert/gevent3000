@@ -3,8 +3,13 @@
 import sys
 import os
 import traceback
-from gevent import core
-from gevent.six import PY3
+try:
+    from gevent._util import set_exc_info
+except ImportError:
+    _, ex, _ = sys.exc_info()
+    sys.stderr.write('Failed to import set_exc_info: %s\n' % ex)
+    def set_exc_info(*args):
+        pass
 
 
 __all__ = ['getcurrent',
@@ -17,6 +22,18 @@ __all__ = ['getcurrent',
            'get_hub',
            'Hub',
            'Waiter']
+
+
+PY3 = sys.version_info[0] >= 3
+
+
+if PY3:
+    string_types = unicode_type = str
+    integer_types = int
+else:
+    string_types = basestring
+    unicode_type = unicode
+    integer_types = (int, long)
 
 
 def __import_py_magic_greenlet():
@@ -215,12 +232,9 @@ def set_hub(hub):
 
 
 if sys.version_info[0] >= 3:
-    basestring = (str, bytes)
-
     def exc_clear():
         pass
 else:
-    basestring = basestring
     exc_clear = sys.exc_clear
 
 
@@ -233,7 +247,7 @@ def _import(path):
             except ImportError:
                 error = sys.exc_info()[1]
         raise error
-    if not isinstance(path, basestring):
+    if not isinstance(path, string_types):
         return path
     if '.' not in path:
         raise ImportError("Cannot import %r (required format: module.class)" % path)
@@ -260,7 +274,7 @@ def _import(path):
 
 def config(default, envvar):
     result = os.environ.get(envvar) or default
-    if isinstance(result, basestring):
+    if isinstance(result, string_types):
         return result.split(',')
     return result
 
@@ -284,8 +298,8 @@ class Hub(greenlet):
     SYSTEM_ERROR = (KeyboardInterrupt, SystemExit, SystemError)
     NOT_ERROR = (GreenletExit, SystemExit)
     loop_class = config('gevent.core.loop', 'GEVENT_LOOP')
-    resolver_class = ['gevent.resolver_ares.Resolver',
-                      'gevent.resolver_thread.Resolver',
+    resolver_class = ['gevent.resolver_thread.Resolver',
+                      'gevent.resolver_ares.Resolver',
                       'gevent.socket.BlockingResolver']
     resolver_class = resolver_config(resolver_class, 'GEVENT_RESOLVER')
     threadpool_class = config('gevent.threadpool.ThreadPool', 'GEVENT_THREADPOOL')
@@ -364,7 +378,7 @@ class Hub(greenlet):
             exc_clear()
             return greenlet.switch(self)
         finally:
-            core.set_exc_info(exc_type, exc_value)
+            set_exc_info(exc_type, exc_value)
 
     def switch_out(self):
         raise AssertionError('Impossible to call blocking function in the event loop callback')
