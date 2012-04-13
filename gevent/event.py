@@ -2,10 +2,10 @@
 """Basic synchronization primitives: Event and AsyncResult"""
 
 import sys
-from gevent.hub import get_hub, getcurrent, _NONE
+from gevent.hub import get_hub, getcurrent, _NONE, PY3
 from gevent.timeout import Timeout
-from gevent.six import moves
-xrange = moves.xrange
+if PY3:
+    xrange = range
 
 __all__ = ['Event', 'AsyncResult']
 

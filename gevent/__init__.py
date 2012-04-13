@@ -33,7 +33,6 @@ __all__ = ['get_hub',
 
 
 import sys
-from gevent.six import PY3
 if sys.platform == 'win32':
     __import__('socket')  # trigger WSAStartup call
 
@@ -43,7 +42,7 @@ from gevent.greenlet import Greenlet, joinall, killall
 spawn = Greenlet.spawn
 spawn_later = Greenlet.spawn_later
 from gevent.timeout import Timeout, with_timeout
-from gevent.hub import getcurrent, GreenletExit, spawn_raw, sleep, idle, kill, signal
+from gevent.hub import getcurrent, GreenletExit, spawn_raw, sleep, idle, kill, signal, PY3
 try:
     from gevent.hub import fork
 except ImportError:

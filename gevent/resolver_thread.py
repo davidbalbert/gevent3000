@@ -8,12 +8,15 @@ __all__ = ['Resolver']
 
 class Resolver(object):
 
-    expected_errors = (_socket.error, TypeError)
+    expected_errors = Exception
 
     def __init__(self, hub=None):
         if hub is None:
             hub = get_hub()
         self.pool = hub.threadpool
+
+    def __repr__(self):
+        return '<gevent.resolver_thread.Resolver at 0x%x pool=%r>' % (id(self), self.pool)
 
     def close(self):
         pass

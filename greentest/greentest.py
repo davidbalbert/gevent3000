@@ -29,8 +29,7 @@ import os
 from os.path import basename, splitext
 import gevent
 from patched_tests_setup import get_switch_expected
-from gevent.hub import _get_hub
-from gevent.six import PY3
+from gevent.hub import _get_hub, PY3
 
 from functools import wraps
 

@@ -24,17 +24,18 @@ import sys
 import heapq
 import collections
 
-try:
+if sys.version_info[0] == 2:
     from Queue import Full, Empty
-except ImportError:
+else:
     __queue__ = __import__('queue')
     Full = __queue__.Full
     Empty = __queue__.Empty
 
 from gevent.timeout import Timeout
-from gevent.hub import get_hub, Waiter, getcurrent
-from gevent.six import moves
-xrange = moves.xrange
+from gevent.hub import get_hub, Waiter, getcurrent, PY3
+if PY3:
+    xrange = range
+
 
 __all__ = ['Queue', 'PriorityQueue', 'LifoQueue', 'JoinableQueue', 'Channel']
 

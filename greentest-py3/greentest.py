@@ -20,7 +20,7 @@
 # THE SOFTWARE.
 
 # package is named greentest, not test, so it won't be confused with test in stdlib
-
+from __future__ import with_statement
 import sys
 import unittest
 from unittest import TestCase as BaseTestCase
@@ -29,9 +29,9 @@ import os
 from os.path import basename, splitext
 import gevent
 from patched_tests_setup import get_switch_expected
-from gevent.hub import _get_hub
+from gevent.hub import _get_hub, PY3
+
 from functools import wraps
-import collections
 
 VERBOSE = sys.argv.count('-v') > 1
 
@@ -137,8 +137,8 @@ class TestCaseMetaClass(type):
                 timeout *= 6
         check_totalrefcount = _get_class_attr(classDict, bases, 'check_totalrefcount', True)
         error_fatal = _get_class_attr(classDict, bases, 'error_fatal', True)
-        for key, value in list(classDict.items()):
-            if key.startswith('test') and isinstance(value, collections.Callable):
+        for key, value in classDict.items():
+            if key.startswith('test') and callable(value):
                 classDict.pop(key)
                 value = wrap_timeout(timeout, value)
                 my_error_fatal = getattr(value, 'error_fatal', None)
@@ -153,8 +153,9 @@ class TestCaseMetaClass(type):
         return type.__new__(meta, classname, bases, classDict)
 
 
-class TestCase(BaseTestCase, metaclass=TestCaseMetaClass):
+class TestCase(BaseTestCase):
 
+    __metaclass__ = TestCaseMetaClass
     __timeout__ = 1
     switch_expected = 'default'
     error_fatal = True
@@ -353,6 +354,9 @@ def walk_modules(basedir=None, modpath=None, include_so=False):
         if modpath is None:
             modpath = ''
     for fn in sorted(os.listdir(basedir)):
+        if (fn in ['py2', 'py3']):
+            continue
+
         path = os.path.join(basedir, fn)
         if os.path.isdir(path):
             pkg_init = os.path.join(path, '__init__.py')

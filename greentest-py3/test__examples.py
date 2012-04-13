@@ -3,11 +3,10 @@ import os
 import glob
 from os.path import join, abspath, dirname, normpath, basename
 import unittest
-import collections
-try:
-    import urllib.request, urllib.error, urllib.parse
-except ImportError:
+if sys.version_info[0] == 3:
     from urllib import request as urllib2
+else:
+    import urllib2
 import time
 import signal
 import re
@@ -81,8 +80,8 @@ class Test_httpserver(BaseTestServer):
     def read(self, path='/'):
         url = self.URL + path
         try:
-            response = urllib.request.urlopen(url)
-        except urllib.error.HTTPError:
+            response = urllib2.urlopen(url)
+        except urllib2.HTTPError:
             response = sys.exc_info()[1]
         return '%s %s' % (response.code, response.msg), response.read()
 
@@ -101,7 +100,7 @@ class Test_httpserver(BaseTestServer):
         for method in dir(self):
             if method.startswith('_test'):
                 function = getattr(self, method)
-                if isinstance(function, collections.Callable):
+                if callable(function):
                     function()
 
 
@@ -250,7 +249,7 @@ class Test_portforwarder(BaseTestServer):
 
 
 tests = set()
-for klass in list(globals().keys()):
+for klass in globals().keys():
     if klass.startswith('Test'):
         path = getattr(globals()[klass], 'path', None)
         if path is not None:
@@ -263,7 +262,7 @@ for example in simple_examples:
     test = make_test(example)
     if test is not None:
         globals()[test.__name__] = test
-        print(('Added %s' % test.__name__))
+        print ('Added %s' % test.__name__)
     del test
 
 

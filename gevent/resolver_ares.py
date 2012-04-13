@@ -2,10 +2,11 @@
 import os
 import sys
 from _socket import getservbyname, getaddrinfo, gaierror, error
-from gevent.hub import Waiter, get_hub, basestring
+from gevent.hub import Waiter, get_hub, string_types, unicode_type, PY3
 from gevent.socket import AF_UNSPEC, AF_INET, AF_INET6, SOCK_STREAM, SOCK_DGRAM, SOCK_RAW, AI_NUMERICHOST, EAI_SERVICE, AI_PASSIVE
 from gevent.ares import channel, InvalidIP
-from gevent.six import text_type, PY3
+if PY3:
+	basestring = (str, bytes)
 
 __all__ = ['Resolver']
 
@@ -60,7 +61,7 @@ class Resolver(object):
                 # "self.ares is not ares" means channel was destroyed (because we were forked)
 
     def _lookup_port(self, port, socktype):
-        if isinstance(port, basestring):
+        if isinstance(port, string_types):
             try:
                 port = int(port)
             except ValueError:
@@ -96,7 +97,7 @@ class Resolver(object):
         return port, socktype
 
     def _getaddrinfo(self, host, port, family=0, socktype=0, proto=0, flags=0):
-        if isinstance(host, text_type):
+        if isinstance(host, unicode_type):
             host = host.encode('idna')
         elif not isinstance(host, basestring) or (flags & AI_NUMERICHOST):
             # this handles cases which do not require network access

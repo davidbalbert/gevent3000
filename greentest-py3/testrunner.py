@@ -48,7 +48,11 @@ import re
 import traceback
 from unittest import _TextTestResult, defaultTestLoader, TextTestRunner
 import platform
-from gevent.six import exec_, print_
+
+try:
+    killpg = os.killpg
+except AttributeError:
+    killpg = None
 
 try:
     import sqlite3
@@ -87,7 +91,7 @@ def store_record(database_path, table, dictionary, _added_colums_per_db={}):
     try:
         cursor.execute(sql, dictionary)
     except sqlite3.Error:
-        print_(('sql=%r\ndictionary=%r' % (sql, dictionary)))
+        log('sql=%r\ndictionary=%r', sql, dictionary)
         raise
     conn.commit()
     return cursor.lastrowid
@@ -98,13 +102,13 @@ def delete_record(database_path, table, dictionary, _added_colums_per_db={}):
         return
     keys = list(dictionary.keys())
     conn = sqlite3.connect(database_path)
-    print_(('deleting %s from database' % (dictionary, )))
+    #print(('deleting %s from database' % (dictionary, )))
     sql = 'delete from %s where %s' % (table, ' AND '.join('%s=:%s' % (key, key) for key in keys))
     cursor = conn.cursor()
     try:
         cursor.execute(sql, dictionary)
     except sqlite3.Error:
-        print_(('sql=%r\ndictionary=%r' % (sql, dictionary)))
+        log('sql=%r\ndictionary=%r', sql, dictionary)
         raise
     conn.commit()
     return cursor.lastrowid
@@ -211,7 +215,7 @@ def execfile_as_main(path):
     main.__package__ = None
     try:
         sys.modules["__main__"] = main
-        return exec_(compile(open(path).read(), path, 'exec'), main.__dict__)
+        return exec(compile(open(path).read(), path, 'exec'), main.__dict__)
     finally:
         sys.modules["__main__"] = oldmain
 
@@ -267,31 +271,42 @@ def run_subprocess(args, options):
 
     retcode = []
 
+    def kill():
+        if popen.poll() is None:
+            try:
+                popen.kill()
+            except Exception as ex:
+                log('%s: %s', popen.pid, ex)
+        if killpg:
+            try:
+                killpg(popen.pid, 9)
+            except OSError:
+                _, ex, _ = sys.exc_info()
+                if ex.errno != 3:
+                    raise
+
     def killer():
         retcode.append('TIMEOUT')
         sys.stderr.write('Killing %s (%s) because of timeout\n' % (popen.pid, args))
-        popen.kill()
+        kill()
 
     timeout = Timer(options.timeout, killer)
     timeout.start()
     output = ''
     output_printed = False
     try:
-        try:
-            if options.capture:
-                while True:
-                    data = popen.stdout.read(1).decode('UTF-8')
-                    if not data:
-                        break
-                    output += data
-                    if options.verbosity >= 2:
-                        sys.stdout.write(data)
-                        output_printed = True
-            retcode.append(popen.wait())
-        except Exception:
-            popen.kill()
-            raise
+        if options.capture:
+            while True:
+                data = popen.stdout.read(1).decode('UTF-8')
+                if not data:
+                    break
+                output += data
+                if options.verbosity >= 2:
+                    sys.stdout.write(data)
+                    output_printed = True
+        retcode.append(popen.wait())
     finally:
+        kill()
         timeout.cancel()
     # QQQ compensating for run_tests' screw up
     module_name = args[0]
@@ -323,15 +338,15 @@ def spawn_subprocess(args, options, base_params):
         else:
             if not output_printed and options.verbosity >= -1:
                 sys.stdout.write(output)
-            print_(('%s failed with code %s' % (' '.join(args), retcode)))
+            log('%s failed with code %s', ' '.join(args), retcode)
     elif retcode == 0:
         if not output_printed and options.verbosity >= 1:
             sys.stdout.write(output)
         if options.verbosity >= 0:
-            print_(('%s passed' % ' '.join(args)))
+            log('%s passed', ' '.join(args))
         success = True
     else:
-        print_(('%s timed out' % ' '.join(args)))
+        log('%s timed out', ' '.join(args))
     sys.stdout.flush()
     if options.db:
         params['output'] = output
@@ -364,12 +379,12 @@ def spawn_subprocesses(options, args):
             traceback.print_exc()
     if options.db:
         try:
-            print_(('-' * 80))
+            log('-' * 80)
             if print_stats(options):
                 success = False
         except sqlite3.OperationalError:
             traceback.print_exc()
-        print_(('To view stats again for this run, use %s --stats --runid %s --db %s' % (sys.argv[0], options.runid, options.db)))
+        log('To view stats again for this run, use %s --stats --runid %s --db %s', sys.argv[0], options.runid, options.db)
     if not success:
         sys.exit(1)
 
@@ -410,6 +425,8 @@ def get_warnings(output):
         return _warning_re.findall(output[:OUTPUT_LIMIT]) + ['AbridgedOutputWarning']
 
 
+newline_re = re.compile('[\r\n]+')
+
 def get_exceptions(output):
     """
     >>> get_exceptions('''test$ python -c "1/0"
@@ -420,7 +437,7 @@ def get_exceptions(output):
     """
     errors = []
     readtb = False
-    for line in output.split('\n'):
+    for line in newline_re.split(output):
         if 'Traceback (most recent call last):' in line:
             readtb = True
         else:
@@ -501,14 +518,14 @@ def print_stats(options):
     cursor = db.cursor()
     if options.runid is None:
         options.runid = cursor.execute('select runid from test order by started_at desc limit 1').fetchall()[0][0]
-        print_(('Using the latest runid: %s' % options.runid))
+        log('Using the latest runid: %s', options.runid)
     total = len(get_testcases(cursor, options.runid))
     failed, errors = get_failed_testcases(cursor, options.runid)
     timedout = get_testcases(cursor, options.runid, 'TIMEOUT')
     for test, output, retcode in cursor.execute('select test, output, retcode from test where runid=?', (options.runid, )):
         info, skipped = get_info(output or '', test)
         if info:
-            print_(('%s: %s' % (test, info)))
+            log('%s: %s', test, info)
         if retcode == 'TIMEOUT':
             for testcase in timedout:
                 if testcase.startswith(test + '.'):
@@ -526,18 +543,18 @@ def print_stats(options):
                     total += 1
     if failed:
         failed.sort()
-        print_ ('FAILURES: ')
+        log('FAILURES: ')
         for testcase in failed:
             error = errors.get(testcase)
             if error:
                 error = repr(error)[1:-1][:100]
-                print_((' - %s: %s' % (testcase, error)))
+                log(' - %s: %s', testcase, error)
             else:
-                print_((' - %s' % (testcase, )))
+                log(' - %s', testcase)
     if timedout:
-        print_ ('TIMEOUTS: ')
-        print_((' - ' + '\n - '.join(timedout)))
-    print_(('%s testcases passed; %s failed; %s timed out' % (total, len(failed), len(timedout))))
+        log('TIMEOUTS: ')
+        log(' - ' + '\n - '.join(timedout))
+    log('%s testcases passed; %s failed; %s timed out', total, len(failed), len(timedout))
     if failed or timedout:
         return True
     return False
@@ -563,9 +580,9 @@ def main():
     if options.db:
         if sqlite3:
             options.db = os.path.abspath(options.db)
-            print_(('Using the database: %s' % options.db))
+            log('Using the database: %s', options.db)
         else:
-            sys.stderr.write('Cannot access the database %r: no sqlite3 module found.\n' % (options.db, ))
+            log('Cannot access the database %r: no sqlite3 module found.', options.db)
             options.db = False
 
     if options.db:
@@ -584,11 +601,33 @@ def main():
             except ImportError:
                 import random
                 options.runid = str(random.random())[2:]
-            print_(('Generated runid: %s' % (options.runid, )))
+            log('Generated runid: %s', options.runid)
         if options.record:
+            if killpg:
+                try:
+                    os.setpgrp()
+                except AttributeError:
+                    pass
             run_tests(options, args)
         else:
             spawn_subprocesses(options, args)
+
+
+def log(message, *args):
+    try:
+        string = message % args
+    except Exception:
+        traceback.print_exc()
+        try:
+            message = '%r %% %r\n\n' % (message, args)
+        except Exception:
+            pass
+        try:
+            sys.stderr.write(message)
+        except Exception:
+            traceback.print_exc()
+    else:
+        sys.stderr.write(string + '\n')
 
 
 if __name__ == '__main__':

@@ -2,8 +2,7 @@
 import sys
 from gevent.timeout import Timeout
 from gevent.event import Event
-from gevent.hub import get_hub
-from gevent.six import integer_types
+from gevent.hub import get_hub, integer_types
 
 __implements__ = ['select']
 __all__ = ['error'] + __implements__
