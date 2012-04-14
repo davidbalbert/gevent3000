@@ -343,7 +343,7 @@ class socket(__socket__.socket):
         if self.timeout == 0.0:
             return super(socket, self).connect(address)
         if isinstance(address, tuple):
-            r = getaddrinfo(address[0], address[1], self.family, self.type, self.proto)
+            r = getaddrinfo(address[0], address[1], self.family, self.type & 7, self.proto)
             address = r[0][-1]
         if self.timeout is not None:
             timer = Timeout.start_new(self.timeout, timeout('timed out'))

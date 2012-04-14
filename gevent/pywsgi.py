@@ -201,7 +201,8 @@ class WSGIHandler(object):
         finally:
             if self.socket is not None:
                 try:
-                    self.socket._sock.close()  # do not rely on garbage collection
+                    if hasattr(self.socket, '_sock'):
+                        self.socket._sock.close()  # do not rely on garbage collection
                     self.socket.close()
                 except socket.error:
                     pass
